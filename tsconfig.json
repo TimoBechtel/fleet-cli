@@ -1,0 +1,31 @@
+{
+  "extends": ["@timobechtel/style/tsconfig/react"],
+  "compilerOptions": {
+    "lib": ["ESNext"],
+    "target": "ESNext",
+    "module": "Preserve",
+    "moduleDetection": "force",
+    "jsx": "react-jsx",
+    "allowJs": true,
+
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "noEmit": true,
+
+    "strict": true,
+    "strictNullChecks": true,
+    "skipLibCheck": true,
+    "noFallthroughCasesInSwitch": true,
+    "forceConsistentCasingInFileNames": true,
+
+    // don't need this for bun build
+    "composite": false,
+
+    "outDir": "./dist",
+    "resolveJsonModule": true,
+    "types": ["node", "bun-types"]
+  },
+  "include": ["src/**/*", "tests/**/*"],
+  "exclude": ["node_modules", "dist"]
+}
