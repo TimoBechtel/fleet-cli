@@ -9,7 +9,7 @@ import {
 
 export async function switchCommand(
   workspaceName?: string,
-  options?: { create?: boolean; root?: boolean },
+  options?: { create?: boolean; root?: boolean; base?: string },
 ) {
   try {
     const rootWorkspaceValue = '__root__';
@@ -77,7 +77,7 @@ export async function switchCommand(
 
     if (!targetDir) {
       if (options?.create) {
-        await fleet.createWorkspace(workspaceName);
+        await fleet.createWorkspace(workspaceName, options.base);
         targetDir = fleet.buildWorkspacePath(workspaceName);
 
         console.log(chalk.green(`Done: workspace "${workspaceName}" created`));
