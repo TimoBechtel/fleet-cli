@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { access, readFile, realpath, rm, writeFile } from 'node:fs/promises';
+import { access, mkdir, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import {
   commitAll,
@@ -24,6 +24,30 @@ test('create makes workspace and list shows it', async () => {
   const list = await runFleet(['list'], { cwd: dir.path });
   expect(list.exitCode).toBe(0);
   expect(list.stdout).toContain('task-one');
+});
+
+
+test('create works when project .fleet dir is not tracked in git', async () => {
+  await using dir = await TempDir.create();
+
+  await runGit(['init', '-b', 'main'], { cwd: dir.path });
+  await writeFile(path.join(dir.path, 'README.md'), 'hello\n', 'utf8');
+  await commitAll(dir.path, 'initial commit');
+
+  // Local-only Fleet metadata (NOT committed), so clones won't contain it.
+  await mkdir(path.join(dir.path, '.fleet'), { recursive: true });
+  await writeFile(
+    path.join(dir.path, '.fleet/config.json'),
+    JSON.stringify({}, null, 2),
+    'utf8',
+  );
+
+  const create = await runFleet(['new', 'untracked-fleet'], { cwd: dir.path });
+  expect(create.exitCode).toBe(0);
+
+  await access(
+    path.join(dir.path, '.fleet/workspaces/untracked-fleet/.fleet/.workspace'),
+  );
 });
 
 test('switch writes state file when shell integration env is enabled', async () => {
