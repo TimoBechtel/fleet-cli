@@ -116,18 +116,6 @@ export async function switchCommand(
       }
     }
 
-    if (
-      options?.base &&
-      !createdNow &&
-      workspaceName !== rootWorkspaceValue &&
-      targetDir
-    ) {
-      console.log(
-        chalk.dim(
-          `Note: --base ignored because workspace "${workspaceName}" already exists.`,
-        ),
-      );
-    }
 
     await ShellIntegration.changeDirectory(targetDir);
   } catch (error: unknown) {
