@@ -253,3 +253,49 @@ test('create with --base clones from specified branch instead of current', async
   }
 });
 
+
+test('switch --create with --base clones from specified branch instead of current', async () => {
+  await using dir = await TempDir.create();
+
+  expect((await runFleet(['init', '.'], { cwd: dir.path })).exitCode).toBe(0);
+
+  const baseBranch = (
+    await runGit(['branch', '--show-current'], { cwd: dir.path })
+  ).stdout.trim();
+
+  await writeFile(path.join(dir.path, 'file-on-base.txt'), 'base\n', 'utf8');
+  await commitAll(dir.path, 'add file on base');
+
+  await runGit(['checkout', '-b', 'feature-branch'], { cwd: dir.path });
+  await writeFile(
+    path.join(dir.path, 'file-on-feature.txt'),
+    'feature\n',
+    'utf8',
+  );
+  await commitAll(dir.path, 'add file on feature');
+
+  const result = await runFleet(
+    ['switch', 'missing-workspace', '--create', '--base', baseBranch],
+    { cwd: dir.path },
+  );
+
+  expect(result.exitCode).toBe(0);
+
+  const workspaceDir = path.join(dir.path, '.fleet/workspaces/missing-workspace');
+  await access(path.join(workspaceDir, '.fleet/.workspace'));
+
+  const log = await runGit(['log', '--format=%s'], { cwd: workspaceDir });
+  const commits = log.stdout.trim().split('\n');
+  expect(commits).toContain('add file on base');
+  expect(commits).not.toContain('add file on feature');
+
+  await access(path.join(workspaceDir, 'file-on-base.txt'));
+  try {
+    await access(path.join(workspaceDir, 'file-on-feature.txt'));
+    throw new Error(
+      'file-on-feature.txt should not exist in workspace created from base branch',
+    );
+  } catch (error: unknown) {
+    expect((error as NodeJS.ErrnoException).code).toBe('ENOENT');
+  }
+});
