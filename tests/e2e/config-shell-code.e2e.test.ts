@@ -42,13 +42,23 @@ test('config show prefers project config values over global config values', asyn
 test('shell-code returns function for supported shell', async () => {
   await using dir = await TempDir.create();
 
-  const result = await runFleet(['shell-code', '--shell', 'fish'], {
+  const fishResult = await runFleet(['shell-code', '--shell', 'fish'], {
     cwd: dir.path,
   });
 
-  expect(result.exitCode).toBe(0);
-  expect(result.stdout).toContain('function fleet');
-  expect(result.stdout).toContain('FLEET_SHELL_INTEGRATION=true');
+  expect(fishResult.exitCode).toBe(0);
+  expect(fishResult.stdout).toContain('function fleet');
+  expect(fishResult.stdout).toContain('FLEET_SHELL_INTEGRATION=true');
+  expect(fishResult.stdout).toContain('test "$argv[1]" = "sw"');
+
+  const bashResult = await runFleet(['shell-code', '--shell', 'bash'], {
+    cwd: dir.path,
+  });
+
+  expect(bashResult.exitCode).toBe(0);
+  expect(bashResult.stdout).toContain('fleet()');
+  expect(bashResult.stdout).toContain('FLEET_SHELL_INTEGRATION=true');
+  expect(bashResult.stdout).toContain('"$1" == "sw"');
 });
 
 test('shell-code fails for unsupported shell', async () => {

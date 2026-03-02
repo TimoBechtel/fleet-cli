@@ -40,7 +40,7 @@ function generateShellFunction(shell: string): string {
     case 'zsh':
     case 'bash': {
       return `fleet() {
-    if [[ "$1" == "switch" || "$1" == "-" ]]; then
+    if [[ "$1" == "switch" || "$1" == "sw" || "$1" == "-" ]]; then
         local state_file="${ShellIntegration.getStateFilePath()}"
         
         FLEET_SHELL_INTEGRATION=true command fleet "$@"
@@ -64,7 +64,7 @@ function generateShellFunction(shell: string): string {
 
     case 'fish': {
       return `function fleet
-    if test "$argv[1]" = "switch"; or test "$argv[1]" = "-"
+    if test "$argv[1]" = "switch"; or test "$argv[1]" = "sw"; or test "$argv[1]" = "-"
         set state_file "${ShellIntegration.getStateFilePath()}"
         
         env FLEET_SHELL_INTEGRATION=true command fleet $argv
