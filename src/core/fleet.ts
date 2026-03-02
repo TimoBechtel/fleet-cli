@@ -136,6 +136,7 @@ export class FleetProject {
     await workspace.createBranch(name);
 
     // create .fleet/.workspace file to mark as workspace
+    await ensureDir(path.join(workspaceDir, '.fleet'));
     await writeFile(path.join(workspaceDir, '.fleet', '.workspace'), '');
 
     return workspace;
