@@ -7,20 +7,13 @@ import {
   resolveWorkspaceDirectory,
 } from '../core/utils.js';
 
-interface SwitchOptions {
-  create?: boolean;
-  root?: boolean;
-  base?: string;
-}
-
 export async function switchCommand(
   workspaceName?: string,
-  options?: SwitchOptions,
+  options?: { create?: boolean; root?: boolean; base?: string },
 ) {
   try {
     const rootWorkspaceValue = '__root__';
     let targetDir: string | null = null;
-    let createdNow = false;
 
     const fleet = await FleetProject.ensureFleetProject();
 
@@ -86,7 +79,6 @@ export async function switchCommand(
       if (options?.create) {
         await fleet.createWorkspace(workspaceName, options.base);
         targetDir = fleet.buildWorkspacePath(workspaceName);
-        createdNow = true;
 
         console.log(chalk.green(`Done: workspace "${workspaceName}" created`));
       } else {
@@ -108,7 +100,6 @@ export async function switchCommand(
         process.exit(1);
       }
     }
-
 
     await ShellIntegration.changeDirectory(targetDir);
   } catch (error: unknown) {
