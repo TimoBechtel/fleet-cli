@@ -100,13 +100,6 @@ export async function switchCommand(
             `  fleet switch -c ${workspaceName}    # Create workspace and switch`,
           ),
         );
-        if (options?.base) {
-          console.log(
-            chalk.dim(
-              `  fleet switch -c ${workspaceName} --base ${options.base}    # Create from base branch and switch`,
-            ),
-          );
-        }
         console.log(
           chalk.dim(
             `  fleet new ${workspaceName}           # Create workspace`,
