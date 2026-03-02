@@ -7,13 +7,20 @@ import {
   resolveWorkspaceDirectory,
 } from '../core/utils.js';
 
+interface SwitchOptions {
+  create?: boolean;
+  root?: boolean;
+  base?: string;
+}
+
 export async function switchCommand(
   workspaceName?: string,
-  options?: { create?: boolean; root?: boolean },
+  options?: SwitchOptions,
 ) {
   try {
     const rootWorkspaceValue = '__root__';
     let targetDir: string | null = null;
+    let createdNow = false;
 
     const fleet = await FleetProject.ensureFleetProject();
 
@@ -77,8 +84,9 @@ export async function switchCommand(
 
     if (!targetDir) {
       if (options?.create) {
-        await fleet.createWorkspace(workspaceName);
+        await fleet.createWorkspace(workspaceName, options.base);
         targetDir = fleet.buildWorkspacePath(workspaceName);
+        createdNow = true;
 
         console.log(chalk.green(`Done: workspace "${workspaceName}" created`));
       } else {
@@ -92,6 +100,13 @@ export async function switchCommand(
             `  fleet switch -c ${workspaceName}    # Create workspace and switch`,
           ),
         );
+        if (options?.base) {
+          console.log(
+            chalk.dim(
+              `  fleet switch -c ${workspaceName} --base ${options.base}    # Create from base branch and switch`,
+            ),
+          );
+        }
         console.log(
           chalk.dim(
             `  fleet new ${workspaceName}           # Create workspace`,
@@ -99,6 +114,19 @@ export async function switchCommand(
         );
         process.exit(1);
       }
+    }
+
+    if (
+      options?.base &&
+      !createdNow &&
+      workspaceName !== rootWorkspaceValue &&
+      targetDir
+    ) {
+      console.log(
+        chalk.dim(
+          `Note: --base ignored because workspace "${workspaceName}" already exists.`,
+        ),
+      );
     }
 
     await ShellIntegration.changeDirectory(targetDir);
