@@ -122,6 +122,8 @@ _fleet_complete() {
       return 0
       ;;
   esac
+
+  return 1
 }
 
 complete -o default -o bashdefault -F _fleet_complete fleet
@@ -188,6 +190,15 @@ _fleet() {
     case "$cmd" in
       ${workspacePattern})
         _fleet_complete_workspaces
+        return
+        ;;
+    esac
+  fi
+
+  if (( CURRENT == 4 )); then
+    case "$cmd" in
+      exec)
+        _files
         return
         ;;
     esac
