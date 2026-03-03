@@ -129,6 +129,8 @@ complete -o default -o bashdefault -F _fleet_complete fleet
 }
 
 function zshCompletionScript(): string {
+  const workspacePattern = WORKSPACE_SUBCOMMANDS.join('|');
+
   return `#compdef fleet
 
 _fleet_complete_commands() {
@@ -184,7 +186,7 @@ _fleet() {
 
   if (( CURRENT == 3 )); then
     case "$cmd" in
-      switch|sw|rm|merge|exec)
+      ${workspacePattern})
         _fleet_complete_workspaces
         return
         ;;
