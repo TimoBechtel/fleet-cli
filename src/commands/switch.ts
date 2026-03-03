@@ -28,6 +28,33 @@ export async function switchCommand(
         process.cwd(),
         fleet,
       );
+      const isInteractive = Boolean(process.stdin.isTTY && process.stdout.isTTY);
+
+      console.log(
+        chalk.dim(
+          `Current workspace: ${currentWorkspaceName ?? 'project root'}`,
+        ),
+      );
+      console.log();
+
+      if (workspaces.length === 0) {
+        console.error(chalk.red('Error: no workspaces available'));
+        console.error(chalk.dim('Try: fleet new <name>'));
+        process.exit(1);
+      }
+
+      if (!isInteractive) {
+        console.log(chalk.dim('Available workspaces:'));
+        for (const workspace of workspaces) {
+          console.log(chalk.dim(`  - ${workspace}`));
+        }
+        console.log();
+        console.error(chalk.red('Error: no workspace specified'));
+        console.error(
+          chalk.dim('Run: fleet switch <name> or fleet switch --root'),
+        );
+        process.exit(1);
+      }
 
       const choices = [...workspaces].filter(
         // don't show current workspace in list
@@ -38,13 +65,6 @@ export async function switchCommand(
       if (currentWorkspaceName) {
         choices.unshift(rootWorkspaceValue);
       }
-
-      console.log(
-        chalk.dim(
-          `Current workspace: ${currentWorkspaceName ?? 'project root'}`,
-        ),
-      );
-      console.log();
 
       const { selectedWorkspace } = await inquirer.prompt<{
         selectedWorkspace: string;

@@ -160,6 +160,23 @@ test('switch fails for missing workspace without -c', async () => {
   expect(result.stderr).toContain('does not exist');
 });
 
+test('switch without args in non-interactive mode lists workspaces and exits', async () => {
+  await using dir = await TempDir.create();
+
+  expect((await runFleet(['init', '.'], { cwd: dir.path })).exitCode).toBe(0);
+  expect((await runFleet(['new', 'alpha'], { cwd: dir.path })).exitCode).toBe(0);
+  expect((await runFleet(['new', 'beta'], { cwd: dir.path })).exitCode).toBe(0);
+
+  const result = await runFleet(['switch'], { cwd: dir.path });
+  const output = result.stdout + result.stderr;
+
+  expect(result.exitCode).toBe(1);
+  expect(output).toContain('fleet switch <name>');
+  expect(output).toContain('fleet switch --root');
+  expect(output).toContain('alpha');
+  expect(output).toContain('beta');
+});
+
 test('create fails when extraFiles include tracked dirty files', async () => {
   await using dir = await TempDir.create();
 
@@ -252,4 +269,3 @@ test('create with --base clones from specified branch instead of current', async
     expect((error as NodeJS.ErrnoException).code).toBe('ENOENT');
   }
 });
-
