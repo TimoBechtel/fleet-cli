@@ -11,8 +11,11 @@ test('completion outputs scripts for supported shells', async () => {
 
   expect(bashResult.exitCode).toBe(0);
   expect(bashResult.stdout).toContain('_fleet_complete');
-  expect(bashResult.stdout).toContain('complete -F _fleet_complete fleet');
+  expect(bashResult.stdout).toContain(
+    'complete -o default -o bashdefault -F _fleet_complete fleet',
+  );
   expect(bashResult.stdout).toContain('fleet __complete commands');
+  expect(bashResult.stdout).toContain('fleet __complete options');
   expect(bashResult.stdout).toContain('fleet __complete workspaces');
 
   const zshResult = await runFleet(['completion', '--shell', 'zsh'], {
@@ -20,16 +23,17 @@ test('completion outputs scripts for supported shells', async () => {
   });
 
   expect(zshResult.exitCode).toBe(0);
-  expect(zshResult.stdout).toContain('bashcompinit');
-  expect(zshResult.stdout).toContain('_fleet_complete');
+  expect(zshResult.stdout).toContain('compdef _fleet fleet');
+  expect(zshResult.stdout).toContain('_describe');
 
   const fishResult = await runFleet(['completion', '--shell', 'fish'], {
     cwd: dir.path,
   });
 
   expect(fishResult.exitCode).toBe(0);
-  expect(fishResult.stdout).toContain('complete -c fleet');
-  expect(fishResult.stdout).toContain('fleet __complete commands');
+  expect(fishResult.stdout).toContain('function __fleet_complete_commands');
+  expect(fishResult.stdout).toContain('fleet __complete commands --with-descriptions');
+  expect(fishResult.stdout).toContain('fleet __complete options');
   expect(fishResult.stdout).toContain('fleet __complete workspaces');
 });
 
@@ -63,4 +67,30 @@ test('__complete commands lists visible command names and aliases', async () => 
   expect(result.stdout).toContain('completion');
   expect(result.stdout).not.toContain('__complete');
   expect(result.stdout).not.toContain('\n-\n');
+});
+
+test('__complete commands supports descriptions', async () => {
+  await using dir = await TempDir.create();
+
+  const result = await runFleet(
+    ['__complete', 'commands', '--with-descriptions'],
+    { cwd: dir.path },
+  );
+
+  expect(result.exitCode).toBe(0);
+  expect(result.stdout).toContain('init\t');
+});
+
+test('__complete options lists option tokens with descriptions', async () => {
+  await using dir = await TempDir.create();
+
+  const result = await runFleet(
+    ['__complete', 'options', 'switch', '--with-descriptions'],
+    { cwd: dir.path },
+  );
+
+  expect(result.exitCode).toBe(0);
+  expect(result.stdout).toContain('--root\t');
+  expect(result.stdout).toContain('-r\t');
+  expect(result.stdout).not.toContain('--help');
 });

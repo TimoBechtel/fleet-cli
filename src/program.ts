@@ -119,6 +119,8 @@ export function createProgram(): Command {
     .command('__complete', { hidden: true })
     .description('Internal completion helper')
     .argument('<resource>', 'Resource to complete')
+    .argument('[target]', 'Target command for options')
+    .option('--with-descriptions', 'Include descriptions in output')
     .action(createCompleteCommand(program));
 
   return program;
