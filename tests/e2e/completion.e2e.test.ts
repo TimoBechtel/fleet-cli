@@ -1,0 +1,52 @@
+import { expect, test } from 'bun:test';
+import { runFleet } from '../helpers/cli';
+import { TempDir } from '../helpers/temp-dir';
+
+test('completion outputs scripts for supported shells', async () => {
+  await using dir = await TempDir.create();
+
+  const bashResult = await runFleet(['completion', '--shell', 'bash'], {
+    cwd: dir.path,
+  });
+
+  expect(bashResult.exitCode).toBe(0);
+  expect(bashResult.stdout).toContain('_fleet_complete');
+  expect(bashResult.stdout).toContain('complete -F _fleet_complete fleet');
+  expect(bashResult.stdout).toContain('fleet __complete workspaces');
+
+  const zshResult = await runFleet(['completion', '--shell', 'zsh'], {
+    cwd: dir.path,
+  });
+
+  expect(zshResult.exitCode).toBe(0);
+  expect(zshResult.stdout).toContain('bashcompinit');
+  expect(zshResult.stdout).toContain('_fleet_complete');
+
+  const fishResult = await runFleet(['completion', '--shell', 'fish'], {
+    cwd: dir.path,
+  });
+
+  expect(fishResult.exitCode).toBe(0);
+  expect(fishResult.stdout).toContain('complete -c fleet');
+  expect(fishResult.stdout).toContain('fleet __complete workspaces');
+});
+
+test('__complete workspaces lists workspace names', async () => {
+  await using dir = await TempDir.create();
+
+  expect((await runFleet(['init', '.'], { cwd: dir.path })).exitCode).toBe(0);
+  expect((await runFleet(['new', 'alpha'], { cwd: dir.path })).exitCode).toBe(
+    0,
+  );
+  expect((await runFleet(['new', 'bravo'], { cwd: dir.path })).exitCode).toBe(
+    0,
+  );
+
+  const result = await runFleet(['__complete', 'workspaces'], {
+    cwd: dir.path,
+  });
+
+  expect(result.exitCode).toBe(0);
+  expect(result.stdout).toContain('alpha');
+  expect(result.stdout).toContain('bravo');
+});

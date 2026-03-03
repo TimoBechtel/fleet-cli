@@ -3,6 +3,7 @@
 import { Command } from 'commander';
 import packageJson from '../package.json';
 import { cleanCommand } from './commands/clean.js';
+import { completionCommand, completeCommand } from './commands/completion.js';
 import { configCommand } from './commands/config.js';
 import { createCommand } from './commands/create.js';
 import { deleteCommand } from './commands/delete.js';
@@ -42,7 +43,10 @@ program
   .command('new')
   .description('Create a new workspace')
   .argument('<name>', 'Workspace name')
-  .option('-b, --base <branch>', 'Clone from specific branch instead of current')
+  .option(
+    '-b, --base <branch>',
+    'Clone from specific branch instead of current',
+  )
   .action(createCommand);
 
 program
@@ -51,7 +55,10 @@ program
   .description('Navigate to a specific workspace')
   .argument('[workspace]', 'Workspace to switch to')
   .option('-c, --create', "Create workspace if it doesn't exist")
-  .option('-b, --base <branch>', 'Clone from specific branch instead of current')
+  .option(
+    '-b, --base <branch>',
+    'Clone from specific branch instead of current',
+  )
   .option('-r, --root', 'Switch to project root')
   .action(switchCommand);
 
@@ -105,5 +112,17 @@ program
   )
   .option('--shell <shell>', 'Shell type (bash, zsh, fish)')
   .action(shellCodeCommand);
+
+program
+  .command('completion')
+  .description('Generate shell completion script')
+  .option('--shell <shell>', 'Shell type (bash, zsh, fish)')
+  .action(completionCommand);
+
+program
+  .command('__complete', { hidden: true })
+  .description('Internal completion helper')
+  .argument('<resource>', 'Resource to complete')
+  .action(completeCommand);
 
 program.parse();
