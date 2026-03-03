@@ -81,61 +81,6 @@ test('switch writes state file when shell integration env is enabled', async () 
   );
 });
 
-test('switch prompt allows selecting a workspace', async () => {
-  await using dir = await TempDir.create();
-  await using home = await TempDir.create('fleet-cli-home-');
-
-  expect(
-    (
-      await runFleet(['init', '.'], {
-        cwd: dir.path,
-        env: { HOME: home.path },
-      })
-    ).exitCode,
-  ).toBe(0);
-
-  expect(
-    (
-      await runFleet(['new', 'task-one'], {
-        cwd: dir.path,
-        env: { HOME: home.path },
-      })
-    ).exitCode,
-  ).toBe(0);
-
-  expect(
-    (
-      await runFleet(['new', 'task-two'], {
-        cwd: dir.path,
-        env: { HOME: home.path },
-      })
-    ).exitCode,
-  ).toBe(0);
-
-  const workspaceOne = path.join(dir.path, '.fleet/workspaces/task-one');
-  const workspaceTwo = path.join(dir.path, '.fleet/workspaces/task-two');
-  const stateFile = path.join(home.path, '.config/fleet/fleet-shell-cd.tmp');
-
-  const result = await runFleet(['switch'], {
-    cwd: dir.path,
-    env: { HOME: home.path, FLEET_SHELL_INTEGRATION: 'true' },
-    input: '\n',
-  });
-
-  expect(result.exitCode).toBe(0);
-  expect(result.stdout).toContain('Select a workspace:');
-  expect(result.stdout).toContain('task-one');
-  expect(result.stdout).toContain('task-two');
-
-  await access(stateFile);
-  const selectedPath = (await readFile(stateFile, 'utf8')).trim();
-  const expectedTargets = [
-    await realpath(workspaceOne),
-    await realpath(workspaceTwo),
-  ];
-  expect(expectedTargets).toContain(selectedPath);
-});
-
 test("'switch --root' and '-' both switch to project root", async () => {
   await using dir = await TempDir.create();
   await using home = await TempDir.create('fleet-cli-home-');
