@@ -3,7 +3,7 @@ import chalk from 'chalk';
 import { FleetProject } from '../core/fleet.js';
 import { ShellIntegration } from '../core/shell-integration.js';
 
-const WORKSPACE_SUBCOMMANDS = ['switch', 'sw', 'rm', 'merge', 'exec'];
+const WORKSPACE_SUBCOMMANDS = ['switch', 'sw', 'rm', 'merge', 'exec', 'x'];
 
 export function completionCommand(options: { shell?: string } = {}) {
   const detectedShell = options.shell || ShellIntegration.detectShell();
@@ -195,14 +195,6 @@ _fleet() {
     esac
   fi
 
-  if (( CURRENT == 4 )); then
-    case "$cmd" in
-      exec)
-        _files
-        return
-        ;;
-    esac
-  fi
 
   return 1
 }
