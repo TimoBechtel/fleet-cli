@@ -252,4 +252,3 @@ test('create with --base clones from specified branch instead of current', async
     expect((error as NodeJS.ErrnoException).code).toBe('ENOENT');
   }
 });
-

@@ -1,5 +1,5 @@
+import { select } from '@inquirer/prompts';
 import chalk from 'chalk';
-import inquirer from 'inquirer';
 import { FleetProject } from '../core/fleet.js';
 import { ShellIntegration } from '../core/shell-integration.js';
 import {
@@ -46,20 +46,14 @@ export async function switchCommand(
       );
       console.log();
 
-      const { selectedWorkspace } = await inquirer.prompt<{
-        selectedWorkspace: string;
-      }>([
-        {
-          type: 'list',
-          name: 'selectedWorkspace',
-          message: 'Select a workspace:',
-          choices: choices.map((workspace) => ({
-            name:
-              workspace === rootWorkspaceValue ? `- project root -` : workspace,
-            value: workspace,
-          })),
-        },
-      ]);
+      const selectedWorkspace = await select({
+        message: 'Select a workspace:',
+        choices: choices.map((workspace) => ({
+          name:
+            workspace === rootWorkspaceValue ? `- project root -` : workspace,
+          value: workspace,
+        })),
+      });
 
       workspaceName = selectedWorkspace;
     }
