@@ -1,11 +1,12 @@
 import chalk from 'chalk';
 import fs, { ensureDir, pathExists } from 'fs-extra';
-import { confirm } from '@inquirer/prompts';
+import inquirer from 'inquirer';
 import { execSync } from 'node:child_process';
 import { appendFile, readFile, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { ConfigManager } from './config';
+import { isExitPromptError } from './inquirer.js';
 
 export class ShellIntegration {
   static detectShell(): string | null {
@@ -101,10 +102,21 @@ export class ShellIntegration {
       'To be able to change directories, you need to set up the shell integration.',
     );
 
-    const shouldSetup = await confirm({
-      message: `Add shell integration to ${configFile}?`,
-      default: true,
-    });
+    let shouldSetup = false;
+    try {
+      const response = await inquirer.prompt<{ shouldSetup: boolean }>({
+        type: 'confirm',
+        name: 'shouldSetup',
+        message: `Add shell integration to ${configFile}?`,
+        default: true,
+      });
+      shouldSetup = response.shouldSetup;
+    } catch (error: unknown) {
+      if (isExitPromptError(error)) {
+        return false;
+      }
+      throw error;
+    }
 
     console.log();
 

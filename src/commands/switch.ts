@@ -1,6 +1,7 @@
 import { select } from '@inquirer/prompts';
 import chalk from 'chalk';
 import { FleetProject } from '../core/fleet.js';
+import { isExitPromptError } from '../core/inquirer.js';
 import { ShellIntegration } from '../core/shell-integration.js';
 import {
   getCurrentWorkspaceName,
@@ -97,6 +98,9 @@ export async function switchCommand(
 
     await ShellIntegration.changeDirectory(targetDir);
   } catch (error: unknown) {
+    if (isExitPromptError(error)) {
+      return;
+    }
     const message = error instanceof Error ? error.message : String(error);
     console.error(chalk.red('Error:'), message);
     process.exit(1);

@@ -2,6 +2,7 @@ import chalk from 'chalk';
 import { pathExists, remove } from 'fs-extra';
 import { confirm } from '@inquirer/prompts';
 import { FleetProject } from '../core/fleet.js';
+import { isExitPromptError } from '../core/inquirer.js';
 import { Workspace } from '../core/workspace.js';
 
 export async function mergeCommand(
@@ -73,6 +74,9 @@ export async function mergeCommand(
       ),
     );
   } catch (error: unknown) {
+    if (isExitPromptError(error)) {
+      return;
+    }
     const message = error instanceof Error ? error.message : String(error);
     console.error(chalk.red('Error:'), message);
     process.exit(1);
