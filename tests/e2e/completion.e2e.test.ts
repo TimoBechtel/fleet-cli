@@ -94,3 +94,35 @@ test('__complete options lists option tokens with descriptions', async () => {
   expect(result.stdout).toContain('-r\t');
   expect(result.stdout).not.toContain('--help');
 });
+
+test('__complete descriptions are single-line and tab-safe', async () => {
+  await using dir = await TempDir.create();
+
+  const commandsResult = await runFleet(
+    ['__complete', 'commands', '--with-descriptions'],
+    { cwd: dir.path },
+  );
+
+  expect(commandsResult.exitCode).toBe(0);
+  const shellCodeLine = commandsResult.stdout
+    .split('\n')
+    .find((line) => line.startsWith('shell-code\t'));
+  expect(shellCodeLine).toBeDefined();
+  if (shellCodeLine) {
+    expect(shellCodeLine).not.toContain('\n');
+  }
+
+  const optionsResult = await runFleet(
+    ['__complete', 'options', 'switch', '--with-descriptions'],
+    { cwd: dir.path },
+  );
+
+  expect(optionsResult.exitCode).toBe(0);
+  const rootLine = optionsResult.stdout
+    .split('\n')
+    .find((line) => line.startsWith('--root\t'));
+  expect(rootLine).toBeDefined();
+  if (rootLine) {
+    expect(rootLine).not.toContain('\t\t');
+  }
+});

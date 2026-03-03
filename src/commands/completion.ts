@@ -333,7 +333,12 @@ function addCompletion(
 ) {
   if (seen.has(token)) return;
   seen.add(token);
-  entries.push(includeDescriptions ? { token, description } : { token });
+  const sanitizedDescription = includeDescriptions
+    ? sanitizeDescription(description)
+    : undefined;
+  entries.push(
+    includeDescriptions ? { token, description: sanitizedDescription } : { token },
+  );
 }
 
 function printCompletionLines(entries: CompletionLine[]) {
@@ -344,4 +349,9 @@ function printCompletionLines(entries: CompletionLine[]) {
       console.log(entry.token);
     }
   }
+}
+
+function sanitizeDescription(description: string): string {
+  const firstLine = description.split('\n')[0] ?? '';
+  return firstLine.replace(/\t/g, ' ');
 }
