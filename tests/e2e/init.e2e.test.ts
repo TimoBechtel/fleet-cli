@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test';
-import { access, writeFile } from 'node:fs/promises';
+import { access, mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { commitAll, initGitRepo, runFleet } from '../helpers/cli';
+import { commitAll, initGitRepo, runFleet, runGit } from '../helpers/cli';
 import { TempDir } from '../helpers/temp-dir';
 
 test('init creates fleet project in empty directory', async () => {
@@ -15,7 +15,7 @@ test('init creates fleet project in empty directory', async () => {
   await access(path.join(dir.path, '.git'));
 });
 
-test('init rejects dirty git repository', async () => {
+test('init allows dirty git repository without auto-commit', async () => {
   await using dir = await TempDir.create();
 
   await initGitRepo(dir.path);
@@ -25,8 +25,11 @@ test('init rejects dirty git repository', async () => {
 
   const result = await runFleet(['init', '.'], { cwd: dir.path });
 
-  expect(result.exitCode).toBe(1);
-  expect(result.stderr).toContain('uncommitted changes');
+  expect(result.exitCode).toBe(0);
+  const count = await runGit(['rev-list', '--count', 'HEAD'], {
+    cwd: dir.path,
+  });
+  expect(count.stdout.trim()).toBe('1');
 });
 
 test('init rejects non-empty non-git directory', async () => {
@@ -55,6 +58,27 @@ test('init succeeds in existing clean git repository', async () => {
   await access(path.join(dir.path, '.fleet/config.json'));
 });
 
+test('init creates a commit for new project', async () => {
+  await using dir = await TempDir.create();
+
+  const result = await runFleet(['init', '.'], { cwd: dir.path });
+
+  expect(result.exitCode).toBe(0);
+  const log = await runGit(['log', '-1', '--pretty=%s'], { cwd: dir.path });
+  expect(log.stdout.trim()).toBe('Initialize Fleet');
+});
+
+test('init rejects when .fleet already exists', async () => {
+  await using dir = await TempDir.create();
+
+  await mkdir(path.join(dir.path, '.fleet'), { recursive: true });
+
+  const result = await runFleet(['init', '.'], { cwd: dir.path });
+
+  expect(result.exitCode).toBe(1);
+  expect(result.stderr).toContain('contains a .fleet directory');
+});
+
 test('init rejects when already in fleet project', async () => {
   await using dir = await TempDir.create();
 
@@ -63,5 +87,5 @@ test('init rejects when already in fleet project', async () => {
   const second = await runFleet(['init', '.'], { cwd: dir.path });
 
   expect(second.exitCode).toBe(1);
-  expect(second.stderr).toContain('already a Fleet project');
+  expect(second.stderr).toContain('contains a .fleet directory');
 });

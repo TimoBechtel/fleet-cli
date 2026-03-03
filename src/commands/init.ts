@@ -11,6 +11,16 @@ export async function initCommand(name?: string) {
     const targetDir =
       name === '.' || name === undefined ? process.cwd() : path.resolve(name);
 
+    const fleetDir = path.join(targetDir, '.fleet');
+    if (await pathExists(fleetDir)) {
+      console.error(
+        chalk.red(
+          'Error: target directory already contains a .fleet directory. Remove it or choose a different directory.',
+        ),
+      );
+      process.exit(1);
+    }
+
     // Check if already a Fleet project
     if (await FleetProject.findFleetProject(targetDir)) {
       console.error(
@@ -37,15 +47,6 @@ export async function initCommand(name?: string) {
         process.exit(1);
       }
 
-      const workspace = new Workspace(targetDir);
-      if (await workspace.hasUncommittedChanges()) {
-        console.error(
-          chalk.red(
-            'Error: Directory has uncommitted changes. Please commit or stash changes before initializing a Fleet project.',
-          ),
-        );
-        process.exit(1);
-      }
     }
 
     if (isNewProject) {
@@ -64,7 +65,9 @@ export async function initCommand(name?: string) {
 
     await FleetProject.init(targetDir);
 
-    await workspace.commitChanges('Initialize Fleet');
+    if (isNewProject) {
+      await workspace.commitChanges('Initialize Fleet');
+    }
 
     console.log();
     console.log(chalk.green('Done: Fleet project initialized'));
