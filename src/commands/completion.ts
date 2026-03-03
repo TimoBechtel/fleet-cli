@@ -1,24 +1,7 @@
+import type { Command } from 'commander';
 import chalk from 'chalk';
 import { FleetProject } from '../core/fleet.js';
 import { ShellIntegration } from '../core/shell-integration.js';
-
-const TOP_LEVEL_COMMANDS = [
-  'init',
-  'exec',
-  'x',
-  'new',
-  'switch',
-  'sw',
-  '-',
-  'ls',
-  'list',
-  'clean',
-  'rm',
-  'merge',
-  'config',
-  'shell-code',
-  'completion',
-];
 
 const WORKSPACE_SUBCOMMANDS = ['switch', 'sw', 'rm', 'merge', 'exec'];
 
@@ -45,16 +28,27 @@ export function completionCommand(options: { shell?: string } = {}) {
   }
 }
 
-export async function completeCommand(resource?: string) {
-  if (resource !== 'workspaces') {
-    process.exit(1);
-  }
+export function createCompleteCommand(program: Command) {
+  return async function completeCommand(resource?: string) {
+    if (resource === 'workspaces') {
+      const fleet = await FleetProject.ensureFleetProject();
+      const workspaces = await fleet.getWorkspaces();
+      for (const workspace of workspaces) {
+        console.log(workspace);
+      }
+      return;
+    }
 
-  const fleet = await FleetProject.ensureFleetProject();
-  const workspaces = await fleet.getWorkspaces();
-  for (const workspace of workspaces) {
-    console.log(workspace);
-  }
+    if (resource === 'commands') {
+      const commands = getTopLevelCommandNames(program);
+      for (const command of commands) {
+        console.log(command);
+      }
+      return;
+    }
+
+    process.exit(1);
+  };
 }
 
 function generateCompletionScript(shell: string): string {
@@ -75,7 +69,6 @@ function generateCompletionScript(shell: string): string {
 }
 
 function bashCompletionScript(): string {
-  const subcommands = TOP_LEVEL_COMMANDS.join(' ');
   const workspaceCommands = WORKSPACE_SUBCOMMANDS.join('|');
 
   return `# bash completion for fleet
@@ -84,7 +77,9 @@ _fleet_complete() {
   cur="\${COMP_WORDS[COMP_CWORD]}"
 
   if [ $COMP_CWORD -eq 1 ]; then
-    COMPREPLY=( $(compgen -W "${subcommands}" -- "$cur") )
+    local commands
+    commands="$(fleet __complete commands 2>/dev/null)"
+    COMPREPLY=( $(compgen -W "$commands" -- "$cur") )
     return 0
   fi
 
@@ -111,13 +106,36 @@ ${bashCompletionScript()}`;
 }
 
 function fishCompletionScript(): string {
-  const subcommands = TOP_LEVEL_COMMANDS.filter((cmd) => cmd !== '-')
-    .map((cmd) => cmd.replace(/'/g, "\\'"))
-    .join(' ');
   const workspaceCommands = WORKSPACE_SUBCOMMANDS.join(' ');
 
   return `# fish completion for fleet
-complete -c fleet -f -n '__fish_use_subcommand' -a '${subcommands}'
+complete -c fleet -f -n '__fish_use_subcommand' -a '(fleet __complete commands 2>/dev/null)'
 complete -c fleet -f -n '__fish_seen_subcommand_from ${workspaceCommands}' -a '(fleet __complete workspaces 2>/dev/null)'
 `;
+}
+
+function getTopLevelCommandNames(program: Command): string[] {
+  const names = new Set<string>();
+
+  for (const command of program.commands) {
+    const isHidden =
+      typeof (command as Command & { hidden?: boolean }).isHidden === 'function'
+        ? command.isHidden()
+        : Boolean((command as Command & { hidden?: boolean }).hidden);
+
+    if (isHidden) continue;
+
+    const name = command.name();
+    if (name && name !== '-' && name !== '__complete') {
+      names.add(name);
+    }
+
+    for (const alias of command.aliases()) {
+      if (alias && alias !== '-' && alias !== '__complete') {
+        names.add(alias);
+      }
+    }
+  }
+
+  return Array.from(names);
 }
