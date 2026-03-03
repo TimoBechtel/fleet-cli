@@ -72,6 +72,7 @@ test('init rejects when .fleet already exists', async () => {
   await using dir = await TempDir.create();
 
   await mkdir(path.join(dir.path, '.fleet'), { recursive: true });
+  await writeFile(path.join(dir.path, '.fleet/.workspace'), '', 'utf8');
 
   const result = await runFleet(['init', '.'], { cwd: dir.path });
 
@@ -87,5 +88,5 @@ test('init rejects when already in fleet project', async () => {
   const second = await runFleet(['init', '.'], { cwd: dir.path });
 
   expect(second.exitCode).toBe(1);
-  expect(second.stderr).toContain('contains a .fleet directory');
+  expect(second.stderr).toContain('already a Fleet project');
 });

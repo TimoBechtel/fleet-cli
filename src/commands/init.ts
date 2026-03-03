@@ -11,21 +11,21 @@ export async function initCommand(name?: string) {
     const targetDir =
       name === '.' || name === undefined ? process.cwd() : path.resolve(name);
 
-    const fleetDir = path.join(targetDir, '.fleet');
-    if (await pathExists(fleetDir)) {
-      console.error(
-        chalk.red(
-          'Error: target directory already contains a .fleet directory. Remove it or choose a different directory.',
-        ),
-      );
-      process.exit(1);
-    }
-
     // Check if already a Fleet project
     if (await FleetProject.findFleetProject(targetDir)) {
       console.error(
         chalk.red(
           'Error: directory is already a Fleet project or within a Fleet project',
+        ),
+      );
+      process.exit(1);
+    }
+
+    const fleetDir = path.join(targetDir, '.fleet');
+    if (await pathExists(fleetDir)) {
+      console.error(
+        chalk.red(
+          'Error: target directory already contains a .fleet directory. Remove it or choose a different directory.',
         ),
       );
       process.exit(1);
