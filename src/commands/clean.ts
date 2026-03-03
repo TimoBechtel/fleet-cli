@@ -1,6 +1,6 @@
 import chalk from 'chalk';
 import { pathExists, remove } from 'fs-extra';
-import inquirer from 'inquirer';
+import { confirm } from '@inquirer/prompts';
 import { FleetProject } from '../core/fleet.js';
 import { Workspace } from '../core/workspace.js';
 
@@ -57,14 +57,10 @@ export async function cleanCommand(options?: { yes?: boolean }) {
     console.log();
 
     if (!options?.yes) {
-      const { confirmed } = await inquirer.prompt<{ confirmed: boolean }>([
-        {
-          type: 'confirm',
-          name: 'confirmed',
-          message: `Remove ${cleanableDirectories.length} directories?`,
-          default: false,
-        },
-      ]);
+      const confirmed = await confirm({
+        message: `Remove ${cleanableDirectories.length} directories?`,
+        default: false,
+      });
 
       if (!confirmed) {
         console.log(chalk.yellow('Cancelled'));

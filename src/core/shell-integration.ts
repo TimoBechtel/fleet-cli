@@ -1,6 +1,6 @@
 import chalk from 'chalk';
 import fs, { ensureDir, pathExists } from 'fs-extra';
-import inquirer from 'inquirer';
+import { confirm } from '@inquirer/prompts';
 import { execSync } from 'node:child_process';
 import { appendFile, readFile, writeFile } from 'node:fs/promises';
 import os from 'node:os';
@@ -101,9 +101,7 @@ export class ShellIntegration {
       'To be able to change directories, you need to set up the shell integration.',
     );
 
-    const { shouldSetup } = await inquirer.prompt<{ shouldSetup: boolean }>({
-      type: 'confirm',
-      name: 'shouldSetup',
+    const shouldSetup = await confirm({
       message: `Add shell integration to ${configFile}?`,
       default: true,
     });

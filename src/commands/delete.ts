@@ -1,6 +1,6 @@
 import chalk from 'chalk';
 import { pathExists, remove } from 'fs-extra';
-import inquirer from 'inquirer';
+import { confirm } from '@inquirer/prompts';
 import { FleetProject } from '../core/fleet.js';
 import { Workspace } from '../core/workspace.js';
 
@@ -55,14 +55,10 @@ export async function deleteCommand(
       }
     }
 
-    const { confirmed } = await inquirer.prompt<{ confirmed: boolean }>([
-      {
-        type: 'confirm',
-        name: 'confirmed',
-        message: `Delete workspace "${resolvedName}"?`,
-        default: false,
-      },
-    ]);
+    const confirmed = await confirm({
+      message: `Delete workspace "${resolvedName}"?`,
+      default: false,
+    });
 
     if (!confirmed) {
       console.log(chalk.yellow('Cancelled'));
