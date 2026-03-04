@@ -43,8 +43,12 @@ export function createProgram(): Command {
     .argument('<workspace-or-directory>', 'Workspace name or directory path')
     .argument('<command>', 'Command to execute')
     .argument('[args...]', 'Command arguments', [])
+    .option('--add', 'Create workspace if missing')
+    .option('-b, --base <branch>', 'Clone from specific branch instead of current')
     .allowUnknownOption()
-    .action(execCommand);
+    .action((workspaceOrDirectory, command, args, options) =>
+      execCommand(workspaceOrDirectory, command, args, options),
+    );
 
   program
     .command('add')

@@ -20,6 +20,21 @@ test('exec runs command inside workspace directory', async () => {
   expect(result.stdout).toContain(workspaceDir);
 });
 
+test('exec --add creates missing workspace and runs in its directory', async () => {
+  await using dir = await TempDir.create();
+
+  expect((await runFleet(['init', '.'], { cwd: dir.path })).exitCode).toBe(0);
+
+  const workspaceName = 'task-exec-add';
+  const workspaceDir = path.join(dir.path, '.fleet/workspaces', workspaceName);
+  const result = await runFleet(['exec', '--add', workspaceName, 'pwd'], {
+    cwd: dir.path,
+  });
+
+  expect(result.exitCode).toBe(0);
+  expect(result.stdout).toContain(workspaceDir);
+});
+
 test('exec accepts explicit directory path', async () => {
   await using dir = await TempDir.create();
 
@@ -37,6 +52,20 @@ test('exec fails when workspace or directory does not exist', async () => {
   expect((await runFleet(['init', '.'], { cwd: dir.path })).exitCode).toBe(0);
 
   const result = await runFleet(['exec', 'does-not-exist', 'pwd'], {
+    cwd: dir.path,
+  });
+
+  expect(result.exitCode).toBe(1);
+  expect(result.stderr).toContain('does not exist');
+});
+
+test('exec --add still fails for missing explicit directory path', async () => {
+  await using dir = await TempDir.create();
+
+  expect((await runFleet(['init', '.'], { cwd: dir.path })).exitCode).toBe(0);
+
+  const missingPath = path.join(dir.path, 'missing-dir');
+  const result = await runFleet(['exec', '--add', missingPath, 'pwd'], {
     cwd: dir.path,
   });
 
