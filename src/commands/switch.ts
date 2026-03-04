@@ -88,7 +88,7 @@ export async function switchCommand(
         );
         console.log(
           chalk.dim(
-            `  fleet new ${workspaceName}           # Create workspace`,
+            `  fleet add ${workspaceName}           # Create workspace`,
           ),
         );
         process.exit(1);

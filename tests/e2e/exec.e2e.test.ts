@@ -8,7 +8,7 @@ test('exec runs command inside workspace directory', async () => {
 
   expect((await runFleet(['init', '.'], { cwd: dir.path })).exitCode).toBe(0);
   expect(
-    (await runFleet(['new', 'task-exec'], { cwd: dir.path })).exitCode,
+    (await runFleet(['add', 'task-exec'], { cwd: dir.path })).exitCode,
   ).toBe(0);
 
   const workspaceDir = path.join(dir.path, '.fleet/workspaces/task-exec');

@@ -8,13 +8,23 @@ import {
 } from '../helpers/cli';
 import { TempDir } from '../helpers/temp-dir';
 
+test('new command is rejected', async () => {
+  await using dir = await TempDir.create();
+
+  const result = await runFleet(['new', 'task-one'], { cwd: dir.path });
+
+  expect(result.exitCode).toBe(1);
+  expect(result.stderr).toContain('unknown command');
+  expect(result.stderr).toContain('new');
+});
+
 test('create makes workspace and list shows it', async () => {
   await using dir = await TempDir.create();
 
   const init = await runFleet(['init', '.'], { cwd: dir.path });
   expect(init.exitCode).toBe(0);
 
-  const create = await runFleet(['new', 'task-one'], { cwd: dir.path });
+  const create = await runFleet(['add', 'task-one'], { cwd: dir.path });
   expect(create.exitCode).toBe(0);
 
   await access(
@@ -42,7 +52,7 @@ test('create works when project .fleet dir is not tracked in git', async () => {
     'utf8',
   );
 
-  const create = await runFleet(['new', 'untracked-fleet'], { cwd: dir.path });
+  const create = await runFleet(['add', 'untracked-fleet'], { cwd: dir.path });
   expect(create.exitCode).toBe(0);
 
   await access(
@@ -60,7 +70,7 @@ test('switch writes state file when shell integration env is enabled', async () 
   });
   expect(init.exitCode).toBe(0);
 
-  const create = await runFleet(['new', 'task-two'], {
+  const create = await runFleet(['add', 'task-two'], {
     cwd: dir.path,
     env: { HOME: home.path },
   });
@@ -96,7 +106,7 @@ test("'switch --root' and '-' both switch to project root", async () => {
 
   expect(
     (
-      await runFleet(['new', 'task-root'], {
+      await runFleet(['add', 'task-root'], {
         cwd: dir.path,
         env: { HOME: home.path },
       })
@@ -173,7 +183,7 @@ test('create fails when extraFiles include tracked dirty files', async () => {
   await commitAll(dir.path, 'add tracked extra file');
   await writeFile(path.join(dir.path, 'tracked-extra.txt'), 'v2\n', 'utf8');
 
-  const result = await runFleet(['new', 'blocked'], { cwd: dir.path });
+  const result = await runFleet(['add', 'blocked'], { cwd: dir.path });
 
   expect(result.exitCode).toBe(1);
   expect(result.stderr).toContain('extraFiles');
@@ -196,7 +206,7 @@ test('create allows untracked extraFiles matches', async () => {
     'utf8',
   );
 
-  const result = await runFleet(['new', 'with-untracked-env'], {
+  const result = await runFleet(['add', 'with-untracked-env'], {
     cwd: dir.path,
   });
 
@@ -228,7 +238,7 @@ test('create with --base clones from specified branch instead of current', async
   );
   await commitAll(dir.path, 'add file on feature');
 
-  const result = await runFleet(['new', 'from-base', '--base', baseBranch], {
+  const result = await runFleet(['add', 'from-base', '--base', baseBranch], {
     cwd: dir.path,
   });
 
