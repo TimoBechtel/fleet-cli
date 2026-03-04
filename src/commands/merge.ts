@@ -75,6 +75,7 @@ export async function mergeCommand(
     );
   } catch (error: unknown) {
     if (isExitPromptError(error)) {
+      process.exitCode = 0;
       return;
     }
     const message = error instanceof Error ? error.message : String(error);

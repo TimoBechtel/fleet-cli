@@ -70,6 +70,7 @@ export async function deleteCommand(
     console.log(chalk.green(`Done: deleted workspace "${resolvedName}"`));
   } catch (error: unknown) {
     if (isExitPromptError(error)) {
+      process.exitCode = 0;
       return;
     }
     const message = error instanceof Error ? error.message : String(error);

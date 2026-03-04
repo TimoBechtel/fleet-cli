@@ -113,6 +113,7 @@ export class ShellIntegration {
       shouldSetup = response.shouldSetup;
     } catch (error: unknown) {
       if (isExitPromptError(error)) {
+        process.exitCode = 0;
         return false;
       }
       throw error;
