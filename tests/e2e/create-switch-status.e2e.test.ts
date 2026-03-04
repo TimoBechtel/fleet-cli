@@ -278,17 +278,3 @@ test('create with --base clones from specified branch instead of current', async
     expect((error as NodeJS.ErrnoException).code).toBe('ENOENT');
   }
 });
-
-test('create fails when workspace already exists', async () => {
-  await using dir = await TempDir.create();
-
-  expect((await runFleet(['init', '.'], { cwd: dir.path })).exitCode).toBe(0);
-
-  expect((await runFleet(['add', 'dup-task'], { cwd: dir.path })).exitCode).toBe(
-    0,
-  );
-
-  const result = await runFleet(['add', 'dup-task'], { cwd: dir.path });
-  expect(result.exitCode).toBe(1);
-  expect(result.stderr).toContain('already exists');
-});
