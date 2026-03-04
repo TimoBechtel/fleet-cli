@@ -1,7 +1,7 @@
 import { select } from '@inquirer/prompts';
 import chalk from 'chalk';
 import { FleetProject } from '../core/fleet.js';
-import { isExitPromptError } from '../core/inquirer.js';
+import { promptOrExit } from '../core/inquirer.js';
 import { ShellIntegration } from '../core/shell-integration.js';
 import {
   getCurrentWorkspaceName,
@@ -47,14 +47,18 @@ export async function switchCommand(
       );
       console.log();
 
-      const selectedWorkspace = await select({
-        message: 'Select a workspace:',
-        choices: choices.map((workspace) => ({
-          name:
-            workspace === rootWorkspaceValue ? `- project root -` : workspace,
-          value: workspace,
-        })),
-      });
+      const selectedWorkspace = await promptOrExit(
+        select({
+          message: 'Select a workspace:',
+          choices: choices.map((workspace) => ({
+            name:
+              workspace === rootWorkspaceValue
+                ? `- project root -`
+                : workspace,
+            value: workspace,
+          })),
+        }),
+      );
 
       workspaceName = selectedWorkspace;
     }
@@ -98,10 +102,6 @@ export async function switchCommand(
 
     await ShellIntegration.changeDirectory(targetDir);
   } catch (error: unknown) {
-    if (isExitPromptError(error)) {
-      process.exitCode = 0;
-      return;
-    }
     const message = error instanceof Error ? error.message : String(error);
     console.error(chalk.red('Error:'), message);
     process.exit(1);

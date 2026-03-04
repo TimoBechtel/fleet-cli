@@ -2,7 +2,7 @@ import chalk from 'chalk';
 import { pathExists, remove } from 'fs-extra';
 import { confirm } from '@inquirer/prompts';
 import { FleetProject } from '../core/fleet.js';
-import { isExitPromptError } from '../core/inquirer.js';
+import { promptOrExit } from '../core/inquirer.js';
 import { Workspace } from '../core/workspace.js';
 
 export async function deleteCommand(
@@ -56,10 +56,12 @@ export async function deleteCommand(
       }
     }
 
-    const confirmed = await confirm({
-      message: `Delete workspace "${resolvedName}"?`,
-      default: false,
-    });
+    const confirmed = await promptOrExit(
+      confirm({
+        message: `Delete workspace "${resolvedName}"?`,
+        default: false,
+      }),
+    );
 
     if (!confirmed) {
       console.log(chalk.yellow('Cancelled'));
@@ -69,10 +71,6 @@ export async function deleteCommand(
     await remove(workspaceDir);
     console.log(chalk.green(`Done: deleted workspace "${resolvedName}"`));
   } catch (error: unknown) {
-    if (isExitPromptError(error)) {
-      process.exitCode = 0;
-      return;
-    }
     const message = error instanceof Error ? error.message : String(error);
     console.error(chalk.red('Error:'), message);
     process.exit(1);

@@ -2,7 +2,7 @@ import chalk from 'chalk';
 import { pathExists, remove } from 'fs-extra';
 import { confirm } from '@inquirer/prompts';
 import { FleetProject } from '../core/fleet.js';
-import { isExitPromptError } from '../core/inquirer.js';
+import { promptOrExit } from '../core/inquirer.js';
 import { Workspace } from '../core/workspace.js';
 
 interface CleanableDirectory {
@@ -58,10 +58,12 @@ export async function cleanCommand(options?: { yes?: boolean }) {
     console.log();
 
     if (!options?.yes) {
-      const confirmed = await confirm({
-        message: `Remove ${cleanableDirectories.length} directories?`,
-        default: false,
-      });
+      const confirmed = await promptOrExit(
+        confirm({
+          message: `Remove ${cleanableDirectories.length} directories?`,
+          default: false,
+        }),
+      );
 
       if (!confirmed) {
         console.log(chalk.yellow('Cancelled'));
@@ -87,10 +89,6 @@ export async function cleanCommand(options?: { yes?: boolean }) {
     console.log();
     console.log(chalk.green(`Done: removed ${removedCount} workspace(s)`));
   } catch (error: unknown) {
-    if (isExitPromptError(error)) {
-      process.exitCode = 0;
-      return;
-    }
     const message = error instanceof Error ? error.message : String(error);
     console.error(chalk.red('Error:'), message);
     process.exit(1);
