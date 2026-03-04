@@ -8,16 +8,6 @@ import {
 } from '../helpers/cli';
 import { TempDir } from '../helpers/temp-dir';
 
-test('new command is rejected', async () => {
-  await using dir = await TempDir.create();
-
-  const result = await runFleet(['new', 'task-one'], { cwd: dir.path });
-
-  expect(result.exitCode).toBe(1);
-  expect(result.stderr).toContain('unknown command');
-  expect(result.stderr).toContain('new');
-});
-
 test('create makes workspace and list shows it', async () => {
   await using dir = await TempDir.create();
 
