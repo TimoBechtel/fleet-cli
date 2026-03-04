@@ -41,8 +41,8 @@ test('__complete workspaces lists workspace names', async () => {
   await using dir = await TempDir.create();
 
   expect((await runFleet(['init', '.'], { cwd: dir.path })).exitCode).toBe(0);
-  expect((await runFleet(['new', 'alpha'], { cwd: dir.path })).exitCode).toBe(0);
-  expect((await runFleet(['new', 'bravo'], { cwd: dir.path })).exitCode).toBe(0);
+  expect((await runFleet(['add', 'alpha'], { cwd: dir.path })).exitCode).toBe(0);
+  expect((await runFleet(['add', 'bravo'], { cwd: dir.path })).exitCode).toBe(0);
 
   const result = await runFleet(['__complete', 'workspaces'], { cwd: dir.path });
 
@@ -60,6 +60,7 @@ test('__complete commands lists visible command names and aliases', async () => 
   expect(result.stdout).toContain('init');
   expect(result.stdout).toContain('exec');
   expect(result.stdout).toContain('x');
+  expect(result.stdout).toContain('add');
   expect(result.stdout).toContain('switch');
   expect(result.stdout).toContain('sw');
   expect(result.stdout).toContain('list');
@@ -67,6 +68,7 @@ test('__complete commands lists visible command names and aliases', async () => 
   expect(result.stdout).toContain('completion');
   expect(result.stdout).not.toContain('__complete');
   expect(result.stdout).not.toContain('\n-\n');
+  expect(result.stdout).not.toContain('\nnew\n');
 });
 
 test('__complete commands supports descriptions', async () => {

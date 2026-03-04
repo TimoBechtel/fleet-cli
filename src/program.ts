@@ -39,7 +39,7 @@ export function createProgram(): Command {
     .action(execCommand);
 
   program
-    .command('new')
+    .command('add')
     .description('Create a new workspace')
     .argument('<name>', 'Workspace name')
     .option(

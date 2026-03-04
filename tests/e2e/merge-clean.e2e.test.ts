@@ -9,7 +9,7 @@ test('merge integrates workspace changes and removes workspace directory', async
 
   expect((await runFleet(['init', '.'], { cwd: dir.path })).exitCode).toBe(0);
   expect(
-    (await runFleet(['new', 'feature-merge'], { cwd: dir.path })).exitCode,
+    (await runFleet(['add', 'feature-merge'], { cwd: dir.path })).exitCode,
   ).toBe(0);
 
   const workspaceDir = path.join(dir.path, '.fleet/workspaces/feature-merge');
@@ -38,7 +38,7 @@ test('merge fails when workspace has uncommitted changes', async () => {
 
   expect((await runFleet(['init', '.'], { cwd: dir.path })).exitCode).toBe(0);
   expect(
-    (await runFleet(['new', 'dirty-merge'], { cwd: dir.path })).exitCode,
+    (await runFleet(['add', 'dirty-merge'], { cwd: dir.path })).exitCode,
   ).toBe(0);
 
   const workspaceDir = path.join(dir.path, '.fleet/workspaces/dirty-merge');
@@ -58,9 +58,9 @@ test('clean removes merged workspace and keeps diverged one', async () => {
 
   expect((await runFleet(['init', '.'], { cwd: dir.path })).exitCode).toBe(0);
   expect(
-    (await runFleet(['new', 'clean-me'], { cwd: dir.path })).exitCode,
+    (await runFleet(['add', 'clean-me'], { cwd: dir.path })).exitCode,
   ).toBe(0);
-  expect((await runFleet(['new', 'keep-me'], { cwd: dir.path })).exitCode).toBe(
+  expect((await runFleet(['add', 'keep-me'], { cwd: dir.path })).exitCode).toBe(
     0,
   );
 
@@ -82,7 +82,7 @@ test('delete removes merge-clean workspace', async () => {
 
   expect((await runFleet(['init', '.'], { cwd: dir.path })).exitCode).toBe(0);
   expect(
-    (await runFleet(['new', 'delete-me'], { cwd: dir.path })).exitCode,
+    (await runFleet(['add', 'delete-me'], { cwd: dir.path })).exitCode,
   ).toBe(0);
 
   const workspaceDir = path.join(dir.path, '.fleet/workspaces/delete-me');
@@ -103,7 +103,7 @@ test('delete fails without --force when workspace has uncommitted changes', asyn
 
   expect((await runFleet(['init', '.'], { cwd: dir.path })).exitCode).toBe(0);
   expect(
-    (await runFleet(['new', 'dirty-delete'], { cwd: dir.path })).exitCode,
+    (await runFleet(['add', 'dirty-delete'], { cwd: dir.path })).exitCode,
   ).toBe(0);
 
   const workspaceDir = path.join(dir.path, '.fleet/workspaces/dirty-delete');
@@ -122,7 +122,7 @@ test('delete fails without --force when workspace has diverged commits', async (
 
   expect((await runFleet(['init', '.'], { cwd: dir.path })).exitCode).toBe(0);
   expect(
-    (await runFleet(['new', 'diverged-delete'], { cwd: dir.path })).exitCode,
+    (await runFleet(['add', 'diverged-delete'], { cwd: dir.path })).exitCode,
   ).toBe(0);
 
   const workspaceDir = path.join(dir.path, '.fleet/workspaces/diverged-delete');

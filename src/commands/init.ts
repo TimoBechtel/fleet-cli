@@ -76,7 +76,7 @@ export async function initCommand(name?: string) {
     }
     console.log();
     console.log(chalk.dim('Next:'));
-    console.log(chalk.dim(`  fleet new <name>        # Create a workspace`));
+    console.log(chalk.dim(`  fleet add <name>        # Create a workspace`));
     console.log(chalk.dim(`  fleet switch <name>     # Switch to a workspace`));
     console.log(
       chalk.dim(`  fleet exec <workspace> <cmd>  # Run command in workspace`),
