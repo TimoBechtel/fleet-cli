@@ -1,8 +1,10 @@
 import chalk from 'chalk';
 import { FleetProject } from '../core/fleet.js';
+import { ShellIntegration } from '../core/shell-integration.js';
 
 interface CreateOptions {
   base?: string;
+  switch?: boolean;
 }
 
 export async function createCommand(
@@ -15,6 +17,13 @@ export async function createCommand(
     await fleet.createWorkspace(workspaceName, options.base);
 
     console.log(chalk.green(`Done: workspace "${workspaceName}" created`));
+
+    if (options.switch) {
+      const targetDir = fleet.buildWorkspacePath(workspaceName);
+      await ShellIntegration.changeDirectory(targetDir);
+      return;
+    }
+
     console.log();
     console.log(chalk.dim('Next steps:'));
     console.log(

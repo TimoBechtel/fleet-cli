@@ -46,6 +46,7 @@ export function createProgram(): Command {
       '-b, --base <branch>',
       'Clone from specific branch instead of current',
     )
+    .option('-s, --switch', 'Switch to the new workspace after creation')
     .action(createCommand);
 
   program

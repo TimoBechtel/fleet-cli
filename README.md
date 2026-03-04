@@ -49,7 +49,7 @@ Worktrees share git internals. That causes problems when multiple agents write t
 
 ```bash
 fleet init .
-fleet add feature-a
+fleet add -s feature-a
 fleet switch feature-a
 # ...work...
 fleet switch --root
