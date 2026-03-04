@@ -16,14 +16,7 @@ curl -fsSL https://raw.githubusercontent.com/TimoBechtel/fleet-cli/main/install.
 Then enable shell integration so `fleet switch` can change your directory:
 
 ```bash
-# bash
 eval "$(fleet shell-code)"
-
-# zsh
-eval "$(fleet shell-code)"
-
-# fish
-eval (fleet shell-code --shell fish)
 ```
 
 Enable shell completions:

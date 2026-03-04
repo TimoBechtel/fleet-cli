@@ -16,14 +16,14 @@ curl -fsSL https://raw.githubusercontent.com/TimoBechtel/fleet-cli/main/install.
 Then set up shell integration (required for `fleet switch` to change your directory):
 
 ```bash
-# bash
+# Add to ~/.zshrc, ~/.bashrc, or ~/.config/fish/config.fish
 eval "$(fleet shell-code)"
+```
 
-# zsh
-eval "$(fleet shell-code)"
+For a specific shell:
 
-# fish
-eval (fleet shell-code --shell fish)
+```bash
+fleet shell-code --shell bash   # or zsh, fish
 ```
 
 ## Project setup
