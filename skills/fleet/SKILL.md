@@ -41,7 +41,7 @@ This creates `.fleet/config.json` and `.fleet/workspaces/`.
 ```bash
 fleet new <name>          # create a new workspace
 fleet switch [workspace]  # switch to a workspace (interactive if no arg)
-fleet switch <name> -c    # create and switch in one step
+fleet switch <name> -a    # create and switch in one step
 fleet switch -r           # go back to project root
 fleet merge <workspace>   # merge workspace into current branch, then delete it
 fleet rm <workspace>      # delete a workspace

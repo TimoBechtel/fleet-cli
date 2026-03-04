@@ -123,7 +123,7 @@ test("'switch --root' and '-' both switch to project root", async () => {
   }
 });
 
-test('switch with -c creates missing workspace', async () => {
+test('switch with -a creates missing workspace', async () => {
   await using dir = await TempDir.create();
   await using home = await TempDir.create('fleet-cli-home-');
 
@@ -136,7 +136,7 @@ test('switch with -c creates missing workspace', async () => {
     ).exitCode,
   ).toBe(0);
 
-  const result = await runFleet(['switch', 'new-task', '--create'], {
+  const result = await runFleet(['switch', 'new-task', '--add'], {
     cwd: dir.path,
     env: { HOME: home.path, FLEET_SHELL_INTEGRATION: 'true' },
   });
@@ -147,7 +147,7 @@ test('switch with -c creates missing workspace', async () => {
   );
 });
 
-test('switch fails for missing workspace without -c', async () => {
+test('switch fails for missing workspace without -a', async () => {
   await using dir = await TempDir.create();
 
   expect((await runFleet(['init', '.'], { cwd: dir.path })).exitCode).toBe(0);
