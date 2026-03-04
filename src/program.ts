@@ -53,7 +53,7 @@ export function createProgram(): Command {
     .alias('sw')
     .description('Navigate to a specific workspace')
     .argument('[workspace]', 'Workspace to switch to')
-    .option('-c, --create', "Create workspace if it doesn't exist")
+    .option('-a, --add', "Create workspace if it doesn't exist")
     .option('-b, --base <branch>', 'Clone from specific branch instead of current')
     .option('-r, --root', 'Switch to project root')
     .action(switchCommand);

@@ -9,7 +9,7 @@ import {
 
 export async function switchCommand(
   workspaceName?: string,
-  options?: { create?: boolean; root?: boolean; base?: string },
+  options?: { add?: boolean; root?: boolean; base?: string },
 ) {
   try {
     const rootWorkspaceValue = '__root__';
@@ -60,7 +60,7 @@ export async function switchCommand(
 
     if (!workspaceName) {
       console.error(chalk.red('Error: no workspace available to switch to'));
-      console.error(chalk.dim('Try: fleet switch -c <name>'));
+      console.error(chalk.dim('Try: fleet switch -a <name>'));
       process.exit(1);
     }
 
@@ -70,7 +70,7 @@ export async function switchCommand(
         : await resolveWorkspaceDirectory(fleet, workspaceName);
 
     if (!targetDir) {
-      if (options?.create) {
+      if (options?.add) {
         await fleet.createWorkspace(workspaceName, options.base);
         targetDir = fleet.buildWorkspacePath(workspaceName);
 
@@ -83,7 +83,7 @@ export async function switchCommand(
         console.log(chalk.dim('Try:'));
         console.log(
           chalk.dim(
-            `  fleet switch -c ${workspaceName}    # Create workspace and switch`,
+            `  fleet switch -a ${workspaceName}    # Create workspace and switch`,
           ),
         );
         console.log(
