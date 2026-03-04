@@ -50,6 +50,32 @@ test('create works when project .fleet dir is not tracked in git', async () => {
   );
 });
 
+test('create with --switch writes state file when shell integration env is enabled', async () => {
+  await using dir = await TempDir.create();
+  await using home = await TempDir.create('fleet-cli-home-');
+
+  const init = await runFleet(['init', '.'], {
+    cwd: dir.path,
+    env: { HOME: home.path },
+  });
+  expect(init.exitCode).toBe(0);
+
+  const create = await runFleet(['add', 'task-switch', '--switch'], {
+    cwd: dir.path,
+    env: { HOME: home.path, FLEET_SHELL_INTEGRATION: 'true' },
+  });
+  expect(create.exitCode).toBe(0);
+
+  const workspaceDir = path.join(dir.path, '.fleet/workspaces/task-switch');
+  await access(path.join(workspaceDir, '.fleet/.workspace'));
+
+  const stateFile = path.join(home.path, '.config/fleet/fleet-shell-cd.tmp');
+  await access(stateFile);
+  expect((await readFile(stateFile, 'utf8')).trim()).toBe(
+    await realpath(workspaceDir),
+  );
+});
+
 test('switch writes state file when shell integration env is enabled', async () => {
   await using dir = await TempDir.create();
   await using home = await TempDir.create('fleet-cli-home-');
