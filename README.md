@@ -19,6 +19,19 @@ Then enable shell integration so `fleet switch` can change your directory:
 eval "$(fleet shell-code)"
 ```
 
+Enable shell completions:
+
+```bash
+# bash
+source <(fleet completion --shell bash)
+
+# zsh
+source <(fleet completion --shell zsh)
+
+# fish
+fleet completion --shell fish | source
+```
+
 ## Why
 
 - No shared working tree between tasks.
