@@ -39,7 +39,7 @@ This creates `.fleet/config.json` and `.fleet/workspaces/`.
 ## Core commands
 
 ```bash
-fleet new <name>          # create a new workspace
+fleet add <name>          # create a new workspace
 fleet switch [workspace]  # switch to a workspace (interactive if no arg)
 fleet switch <name> -c    # create and switch in one step
 fleet switch -r           # go back to project root
@@ -53,7 +53,7 @@ fleet exec <workspace> <command> [args...]  # run a command in a workspace
 
 ```bash
 fleet init                          # one-time setup
-fleet new feature-login             # new workspace for a task
+fleet add feature-login             # new workspace for a task
 fleet switch feature-login          # cd into it
 # ... do work ...
 fleet switch -r                     # go back to project root
