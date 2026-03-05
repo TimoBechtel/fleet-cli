@@ -1,5 +1,7 @@
 # fleet
 
+> **Status**: Experimental - APIs might change without major version bumps.
+
 CLI that creates isolated, git-backed workspaces for a single project.
 It helps when multiple AI agents (or humans) need to work in parallel without conflicts.
 
