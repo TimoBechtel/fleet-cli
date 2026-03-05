@@ -16,6 +16,7 @@ type RunResult = {
 const REPO_ROOT = path.resolve(import.meta.dir, '../..');
 const CLI_ENTRY = path.join(REPO_ROOT, 'src/cli.ts');
 const BUN_BIN = Bun.which('bun') ?? 'bun';
+const REAL_HOME = process.env.HOME;
 const FLEET_ENV: NodeJS.ProcessEnv = {
   GIT_AUTHOR_NAME: 'Fleet Test',
   GIT_AUTHOR_EMAIL: 'test@example.com',
@@ -24,6 +25,7 @@ const FLEET_ENV: NodeJS.ProcessEnv = {
   GIT_CONFIG_COUNT: '1',
   GIT_CONFIG_KEY_0: 'commit.gpgsign',
   GIT_CONFIG_VALUE_0: 'false',
+  ...(REAL_HOME ? { BUN_INSTALL_CACHE_DIR: `${REAL_HOME}/.bun/install/cache` } : {}),
 };
 
 function runCommand(
