@@ -26,7 +26,8 @@ export function createProgram(): Command {
       'Initialize a new Fleet project or add Fleet to existing project',
     )
     .argument('[name]', 'Project name or directory', '.')
-    .action(initCommand);
+    .option('--stealth', 'Initialize a Fleet project without tracking .fleet/ in git')
+    .action((name, options) => initCommand(name, options));
 
   program
     .command('exec')
