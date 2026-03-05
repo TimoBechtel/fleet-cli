@@ -9,7 +9,7 @@ const fleetConfigSchema = z.object({
   postInitCommand: z
     .string()
     .optional()
-    .default('[ -f package.json ] && npx nypm i || true'),
+    .default('[ -f package.json ] && npx nypm i --frozen-lockfile || true'),
   extraFiles: z.array(z.string()).optional().default(['.env*']),
 });
 
