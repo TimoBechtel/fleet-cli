@@ -6,6 +6,7 @@ import { z, ZodError } from 'zod';
 
 // should be fully optional
 const fleetConfigSchema = z.object({
+  backend: z.enum(['worktree', 'clone']).optional().default('worktree'),
   postInitCommand: z
     .string()
     .optional()

@@ -1,6 +1,7 @@
 import chalk from 'chalk';
 import { pathExists, remove } from 'fs-extra';
 import { confirm } from '@inquirer/prompts';
+import path from 'node:path';
 import { FleetProject } from '../core/fleet.js';
 import { Workspace } from '../core/workspace.js';
 
@@ -32,6 +33,10 @@ export async function mergeCommand(
       process.exit(1);
     }
 
+    const isWorktree = await Workspace.isWorktreePath(
+      fleet.root,
+      workspaceDir,
+    );
     const workspace = new Workspace(workspaceDir);
 
     if (await workspace.hasUncommittedChanges()) {
@@ -61,9 +66,21 @@ export async function mergeCommand(
     }
 
     // perform the merge
-    await projectRootWorkspace.mergeWorkspace(resolvedName, workspaceDir);
-
-    await remove(workspaceDir);
+    if (isWorktree) {
+      try {
+        await Workspace.mergeBranchIntoCurrent(fleet.root, resolvedName);
+      } catch (error: unknown) {
+        const relativePath = path.relative(process.cwd(), fleet.root);
+        throw new Error(
+          `\nMerge conflicts detected. \nPlease resolve them manually in "${relativePath}" and complete the merge.`,
+        );
+      }
+      await Workspace.removeWorktree(fleet.root, workspaceDir);
+      await Workspace.deleteBranch(fleet.root, resolvedName);
+    } else {
+      await projectRootWorkspace.mergeWorkspace(resolvedName, workspaceDir);
+      await remove(workspaceDir);
+    }
 
     console.log(
       chalk.green(

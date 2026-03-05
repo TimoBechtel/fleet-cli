@@ -5,6 +5,7 @@ import { ShellIntegration } from '../core/shell-integration.js';
 interface CreateOptions {
   base?: string;
   switch?: boolean;
+  backend?: string;
 }
 
 export async function createCommand(
@@ -14,7 +15,8 @@ export async function createCommand(
   try {
     const fleet = await FleetProject.ensureFleetProject();
 
-    await fleet.createWorkspace(workspaceName, options.base);
+    const backend = parseBackendOption(options.backend);
+    await fleet.createWorkspace(workspaceName, options.base, backend);
 
     console.log(chalk.green(`Done: workspace "${workspaceName}" created`));
 
@@ -35,4 +37,14 @@ export async function createCommand(
     console.error(chalk.red('Error:'), message);
     process.exit(1);
   }
+}
+
+function parseBackendOption(
+  backend?: string,
+): 'worktree' | 'clone' | undefined {
+  if (!backend) return undefined;
+  if (backend === 'worktree' || backend === 'clone') return backend;
+  throw new Error(
+    `Invalid backend "${backend}". Use "worktree" or "clone".`,
+  );
 }

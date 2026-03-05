@@ -14,6 +14,65 @@ export class Workspace {
     this.git = simpleGit(workingDir);
   }
 
+  static async listWorktreePaths(projectRootDir: string): Promise<Set<string>> {
+    try {
+      const git = simpleGit(projectRootDir);
+      const output = await git.raw(['worktree', 'list', '--porcelain']);
+      const paths = new Set<string>();
+      for (const line of output.split('\n')) {
+        if (!line.startsWith('worktree ')) continue;
+        const worktreePath = line.slice('worktree '.length).trim();
+        if (worktreePath) {
+          paths.add(path.resolve(worktreePath));
+        }
+      }
+      return paths;
+    } catch {
+      return new Set<string>();
+    }
+  }
+
+  static async isWorktreePath(
+    projectRootDir: string,
+    workspaceDir: string,
+  ): Promise<boolean> {
+    const worktrees = await Workspace.listWorktreePaths(projectRootDir);
+    return worktrees.has(path.resolve(workspaceDir));
+  }
+
+  static async removeWorktree(
+    projectRootDir: string,
+    workspaceDir: string,
+    force = false,
+  ): Promise<void> {
+    const git = simpleGit(projectRootDir);
+    const args = ['worktree', 'remove'];
+    if (force) args.push('--force');
+    args.push(workspaceDir);
+    await git.raw(args);
+  }
+
+  static async deleteBranch(
+    projectRootDir: string,
+    branchName: string,
+    force = false,
+  ): Promise<void> {
+    const git = simpleGit(projectRootDir);
+    try {
+      await git.branch([force ? '-D' : '-d', branchName]);
+    } catch {
+      // ignore if branch doesn't exist or can't be deleted
+    }
+  }
+
+  static async mergeBranchIntoCurrent(
+    projectRootDir: string,
+    branchName: string,
+  ): Promise<void> {
+    const git = simpleGit(projectRootDir);
+    await git.raw(['merge', branchName]);
+  }
+
   static async isGitRoot(dir: string): Promise<boolean> {
     try {
       const gitDir = path.join(dir, '.git');
@@ -105,19 +164,15 @@ export class Workspace {
         return false;
       }
 
-      // check if current head is reachable from project root head
-      // this means all commits in current workspace are already in project root
-      try {
-        await projectRootWorkspace.git.raw([
-          'merge-base',
-          '--is-ancestor',
-          currentHead,
-          projectRootHead,
-        ]);
-        return false; // current is ancestor of project root, so not diverged
-      } catch {
-        return true; // current is not an ancestor of project root, so diverged
-      }
+      const revList = await projectRootWorkspace.git.raw([
+        'rev-list',
+        '--left-right',
+        '--count',
+        `${projectRootHead}...${currentHead}`,
+      ]);
+      const [, rightCountRaw] = revList.trim().split(/\s+/);
+      const rightCount = Number(rightCountRaw ?? 0);
+      return rightCount > 0;
     } catch {
       return true; // assume diverged if we can't determine
     }
@@ -143,13 +198,13 @@ export class Workspace {
       : this.git.clone(this.workingDir, targetDir));
 
     if (config) {
-      await this.runPostCloneInitialization(targetDir, config);
+      await this.runPostInitSteps(targetDir, config);
     }
 
     return new Workspace(targetDir);
   }
 
-  private async runPostCloneInitialization(
+  async runPostInitSteps(
     targetDir: string,
     config: FleetConfig,
   ): Promise<void> {
@@ -199,6 +254,17 @@ export class Workspace {
         `Post-init command failed: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
+  }
+
+  async addWorktree(
+    targetDir: string,
+    branchName: string,
+    baseBranch?: string,
+  ): Promise<void> {
+    await ensureDir(path.dirname(targetDir));
+    const args = ['worktree', 'add', '-b', branchName, targetDir];
+    if (baseBranch) args.push(baseBranch);
+    await this.git.raw(args);
   }
 
   // TODO: add increment option to create branch with incrementing number if branch already exists (e.g. task-2-1)

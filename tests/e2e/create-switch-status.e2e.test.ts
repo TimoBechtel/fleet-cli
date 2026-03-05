@@ -21,11 +21,44 @@ test('create makes workspace and list shows it', async () => {
     path.join(dir.path, '.fleet/workspaces/task-one/.fleet/.workspace'),
   );
 
+  const worktreeList = await runGit(['worktree', 'list', '--porcelain'], {
+    cwd: dir.path,
+  });
+  expect(worktreeList.stdout).toContain(
+    `worktree ${path.join(dir.path, '.fleet/workspaces/task-one')}`,
+  );
+
   const list = await runFleet(['list'], { cwd: dir.path });
   expect(list.exitCode).toBe(0);
   expect(list.stdout).toContain('task-one');
 });
 
+test('create uses clone backend when configured', async () => {
+  await using dir = await TempDir.create();
+
+  const init = await runFleet(['init', '.'], { cwd: dir.path });
+  expect(init.exitCode).toBe(0);
+
+  await writeFile(
+    path.join(dir.path, '.fleet/config.json'),
+    JSON.stringify({ backend: 'clone' }, null, 2),
+    'utf8',
+  );
+
+  const create = await runFleet(['add', 'legacy-clone'], { cwd: dir.path });
+  expect(create.exitCode).toBe(0);
+
+  await access(
+    path.join(dir.path, '.fleet/workspaces/legacy-clone/.fleet/.workspace'),
+  );
+
+  const worktreeList = await runGit(['worktree', 'list', '--porcelain'], {
+    cwd: dir.path,
+  });
+  expect(worktreeList.stdout).not.toContain(
+    `worktree ${path.join(dir.path, '.fleet/workspaces/legacy-clone')}`,
+  );
+});
 
 test('create works when project .fleet dir is not tracked in git', async () => {
   await using dir = await TempDir.create();
@@ -47,6 +80,13 @@ test('create works when project .fleet dir is not tracked in git', async () => {
 
   await access(
     path.join(dir.path, '.fleet/workspaces/untracked-fleet/.fleet/.workspace'),
+  );
+
+  const worktreeList = await runGit(['worktree', 'list', '--porcelain'], {
+    cwd: dir.path,
+  });
+  expect(worktreeList.stdout).toContain(
+    `worktree ${path.join(dir.path, '.fleet/workspaces/untracked-fleet')}`,
   );
 });
 
@@ -262,6 +302,11 @@ test('create with --base clones from specified branch instead of current', async
 
   const workspaceDir = path.join(dir.path, '.fleet/workspaces/from-base');
   await access(path.join(workspaceDir, '.fleet/.workspace'));
+
+  const worktreeList = await runGit(['worktree', 'list', '--porcelain'], {
+    cwd: dir.path,
+  });
+  expect(worktreeList.stdout).toContain(`worktree ${workspaceDir}`);
 
   const log = await runGit(['log', '--format=%s'], { cwd: workspaceDir });
   const commits = log.stdout.trim().split('\n');

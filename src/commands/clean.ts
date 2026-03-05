@@ -1,6 +1,7 @@
 import chalk from 'chalk';
 import { pathExists, remove } from 'fs-extra';
 import { confirm } from '@inquirer/prompts';
+import path from 'node:path';
 import { FleetProject } from '../core/fleet.js';
 import { Workspace } from '../core/workspace.js';
 
@@ -8,6 +9,7 @@ interface CleanableDirectory {
   name: string;
   path: string;
   reason: string[];
+  isWorktree: boolean;
 }
 
 export async function cleanCommand(options?: { yes?: boolean }) {
@@ -19,6 +21,7 @@ export async function cleanCommand(options?: { yes?: boolean }) {
 
     const workspaces = await fleet.getWorkspaces();
     const cleanableDirectories: CleanableDirectory[] = [];
+    const worktreePaths = await Workspace.listWorktreePaths(fleet.root);
 
     // Check each workspace
     for (const workspaceName of workspaces) {
@@ -27,6 +30,7 @@ export async function cleanCommand(options?: { yes?: boolean }) {
         workspaceName,
         workspaceDir,
         fleet.root,
+        worktreePaths,
       );
 
       if (cleanable) {
@@ -72,7 +76,11 @@ export async function cleanCommand(options?: { yes?: boolean }) {
     let removedCount = 0;
     for (const dir of cleanableDirectories) {
       try {
-        await remove(dir.path);
+        if (dir.isWorktree) {
+          await Workspace.removeWorktree(fleet.root, dir.path);
+        } else {
+          await remove(dir.path);
+        }
         removedCount++;
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error);
@@ -96,6 +104,7 @@ async function checkDirectoryCleanable(
   workspaceName: string,
   workspaceDir: string,
   projectRootDir: string,
+  worktreePaths: Set<string>,
 ): Promise<CleanableDirectory | null> {
   if (!(await pathExists(workspaceDir))) {
     return null;
@@ -105,6 +114,7 @@ async function checkDirectoryCleanable(
     name: workspaceName,
     path: workspaceDir,
     reason: [],
+    isWorktree: worktreePaths.has(path.resolve(workspaceDir)),
   };
 
   const workspace = new Workspace(workspaceDir);

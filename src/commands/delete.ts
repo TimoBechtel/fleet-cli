@@ -31,6 +31,11 @@ export async function deleteCommand(
       process.exit(1);
     }
 
+    const isWorktree = await Workspace.isWorktreePath(
+      fleet.root,
+      workspaceDir,
+    );
+
     if (!options?.force) {
       const workspace = new Workspace(workspaceDir);
 
@@ -65,7 +70,12 @@ export async function deleteCommand(
       return;
     }
 
-    await remove(workspaceDir);
+    if (isWorktree) {
+      await Workspace.removeWorktree(fleet.root, workspaceDir, options?.force);
+      await Workspace.deleteBranch(fleet.root, resolvedName, options?.force);
+    } else {
+      await remove(workspaceDir);
+    }
     console.log(chalk.green(`Done: deleted workspace "${resolvedName}"`));
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);

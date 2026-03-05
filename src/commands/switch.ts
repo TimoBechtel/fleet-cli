@@ -9,7 +9,12 @@ import {
 
 export async function switchCommand(
   workspaceName?: string,
-  options?: { add?: boolean; root?: boolean; base?: string },
+  options?: {
+    add?: boolean;
+    root?: boolean;
+    base?: string;
+    backend?: string;
+  },
 ) {
   try {
     const rootWorkspaceValue = '__root__';
@@ -71,7 +76,8 @@ export async function switchCommand(
 
     if (!targetDir) {
       if (options?.add) {
-        await fleet.createWorkspace(workspaceName, options.base);
+        const backend = parseBackendOption(options.backend);
+        await fleet.createWorkspace(workspaceName, options.base, backend);
         targetDir = fleet.buildWorkspacePath(workspaceName);
 
         console.log(chalk.green(`Done: workspace "${workspaceName}" created`));
@@ -101,4 +107,14 @@ export async function switchCommand(
     console.error(chalk.red('Error:'), message);
     process.exit(1);
   }
+}
+
+function parseBackendOption(
+  backend?: string,
+): 'worktree' | 'clone' | undefined {
+  if (!backend) return undefined;
+  if (backend === 'worktree' || backend === 'clone') return backend;
+  throw new Error(
+    `Invalid backend "${backend}". Use "worktree" or "clone".`,
+  );
 }

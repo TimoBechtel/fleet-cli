@@ -118,6 +118,7 @@ export class FleetProject {
   async createWorkspace(
     name: string,
     baseBranch?: string,
+    backendOverride?: FleetConfig['backend'],
   ): Promise<Workspace> {
     const workspaceDir = this.buildWorkspacePath(name);
     if (await pathExists(workspaceDir)) {
@@ -139,13 +140,21 @@ export class FleetProject {
       );
     }
 
-    const workspace = await projectRootWorkspace.clone(
-      workspaceDir,
-      this.config,
-      baseBranch,
-    );
+    const backend = backendOverride ?? this.config.backend ?? 'worktree';
 
-    await workspace.createBranch(name);
+    let workspace: Workspace;
+    if (backend === 'worktree') {
+      await projectRootWorkspace.addWorktree(workspaceDir, name, baseBranch);
+      workspace = new Workspace(workspaceDir);
+      await projectRootWorkspace.runPostInitSteps(workspaceDir, this.config);
+    } else {
+      workspace = await projectRootWorkspace.clone(
+        workspaceDir,
+        this.config,
+        baseBranch,
+      );
+      await workspace.createBranch(name);
+    }
 
     // create .fleet/.workspace file to mark as workspace
     await ensureDir(path.join(workspaceDir, '.fleet'));
