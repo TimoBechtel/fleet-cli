@@ -6,7 +6,11 @@ import { FleetProject } from '../core/fleet.js';
 import { ShellIntegration } from '../core/shell-integration.js';
 import { Workspace } from '../core/workspace.js';
 
-export async function initCommand(name?: string) {
+interface InitOptions {
+  stealth?: boolean;
+}
+
+export async function initCommand(name?: string, options?: InitOptions) {
   try {
     const targetDir =
       name === '.' || name === undefined ? process.cwd() : path.resolve(name);
@@ -63,9 +67,9 @@ export async function initCommand(name?: string) {
       await workspace.initRepository();
     }
 
-    await FleetProject.init(targetDir);
+    await FleetProject.init(targetDir, { stealth: options?.stealth });
 
-    if (isNewProject) {
+    if (isNewProject && !options?.stealth) {
       await workspace.commitChanges('Initialize Fleet');
     }
 

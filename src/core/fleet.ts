@@ -1,6 +1,6 @@
 import chalk from 'chalk';
 import { ensureDir, pathExists } from 'fs-extra';
-import { readdir, writeFile } from 'node:fs/promises';
+import { copyFile, readdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import {
   ConfigManager,
@@ -68,7 +68,10 @@ export class FleetProject {
     return fleet;
   }
 
-  static async init(root: string): Promise<FleetProject> {
+  static async init(
+    root: string,
+    options: { stealth?: boolean } = {},
+  ): Promise<FleetProject> {
     const fleetDir = path.join(root, '.fleet');
     const workspacesDir = path.join(fleetDir, 'workspaces');
 
@@ -77,9 +80,18 @@ export class FleetProject {
 
     await ConfigManager.createProjectConfig(root, PROJECT_CONFIG_DEFAULTS);
 
+    const gitignoreLines = options.stealth
+      ? [
+          '# Fleet stealth mode: keep .fleet/ local. To track Fleet config in git, remove the next line.',
+          '*',
+          '/workspaces/',
+          '.workspace',
+          '',
+        ]
+      : ['/workspaces/', '.workspace', ''];
     await writeFile(
       path.join(fleetDir, '.gitignore'),
-      `/workspaces/\n.workspace\n`,
+      `${gitignoreLines.join('\n')}`,
     );
 
     const config = await ConfigManager.loadConfig(root);
@@ -138,6 +150,15 @@ export class FleetProject {
     // create .fleet/.workspace file to mark as workspace
     await ensureDir(path.join(workspaceDir, '.fleet'));
     await writeFile(path.join(workspaceDir, '.fleet', '.workspace'), '');
+    const rootGitignore = path.join(this.root, '.fleet', '.gitignore');
+    const workspaceGitignore = path.join(workspaceDir, '.fleet', '.gitignore');
+    if (
+      (await pathExists(rootGitignore)) &&
+      !(await pathExists(workspaceGitignore))
+    ) {
+      // Prevent untracked .fleet/.workspace in the workspace repo.
+      await copyFile(rootGitignore, workspaceGitignore);
+    }
 
     return workspace;
   }

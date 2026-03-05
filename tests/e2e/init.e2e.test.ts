@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { access, mkdir, writeFile } from 'node:fs/promises';
+import { access, mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { commitAll, initGitRepo, runFleet, runGit } from '../helpers/cli';
 import { TempDir } from '../helpers/temp-dir';
@@ -66,6 +66,55 @@ test('init creates a commit for new project', async () => {
   expect(result.exitCode).toBe(0);
   const log = await runGit(['log', '-1', '--pretty=%s'], { cwd: dir.path });
   expect(log.stdout.trim()).toBe('Initialize Fleet');
+});
+
+test('init --stealth keeps git status clean and skips Initialize Fleet commit', async () => {
+  await using dir = await TempDir.create();
+
+  const result = await runFleet(['init', '.', '--stealth'], { cwd: dir.path });
+
+  expect(result.exitCode).toBe(0);
+  const status = await runGit(['status', '--porcelain'], { cwd: dir.path });
+  expect(status.stdout.trim()).toBe('');
+
+  const log = await runGit(['log', '--pretty=%s'], { cwd: dir.path });
+  expect(log.stdout).not.toContain('Initialize Fleet');
+
+  const gitignore = await readFile(
+    path.join(dir.path, '.fleet/.gitignore'),
+    'utf8',
+  );
+  expect(gitignore.split('\n').slice(0, 4)).toEqual([
+    '# Fleet stealth mode: keep .fleet/ local. To track Fleet config in git, remove the next line.',
+    '*',
+    '/workspaces/',
+    '.workspace',
+  ]);
+});
+
+test('fleet add copies root .fleet/.gitignore into workspace in stealth projects', async () => {
+  await using dir = await TempDir.create();
+
+  const init = await runFleet(['init', '.', '--stealth'], { cwd: dir.path });
+  expect(init.exitCode).toBe(0);
+
+  const add = await runFleet(['add', 'alpha'], { cwd: dir.path });
+  expect(add.exitCode).toBe(0);
+
+  const rootGitignore = await readFile(
+    path.join(dir.path, '.fleet/.gitignore'),
+    'utf8',
+  );
+  const workspaceGitignore = await readFile(
+    path.join(dir.path, '.fleet/workspaces/alpha/.fleet/.gitignore'),
+    'utf8',
+  );
+  expect(workspaceGitignore).toBe(rootGitignore);
+
+  const workspaceStatus = await runGit(['status', '--porcelain'], {
+    cwd: path.join(dir.path, '.fleet/workspaces/alpha'),
+  });
+  expect(workspaceStatus.stdout.trim()).toBe('');
 });
 
 test('init rejects when .fleet already exists', async () => {
