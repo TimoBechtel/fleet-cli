@@ -9,7 +9,9 @@ const fleetConfigSchema = z.object({
   postInitCommand: z
     .string()
     .optional()
-    .default('[ -f package.json ] && npx nypm i --frozen-lockfile || true'),
+    .default(
+      'if [ -f .gitmodules ]; then git submodule update --init --recursive || true; fi; [ -f package.json ] && npx nypm i --frozen-lockfile || true',
+    ),
   extraFiles: z.array(z.string()).optional().default(['.env*']),
 });
 
