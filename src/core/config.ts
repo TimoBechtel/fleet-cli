@@ -10,7 +10,7 @@ const fleetConfigSchema = z.object({
     .string()
     .optional()
     .default(
-      "if [ -f .gitmodules ] && git config --file .gitmodules --get-regexp '^submodule\\..*\\.path$' >/dev/null 2>&1; then git submodule update --init --recursive || true; fi; [ -f package.json ] && npx nypm i --frozen-lockfile || true",
+      'if [ -f .gitmodules ]; then git submodule update --init --recursive || true; fi; [ -f package.json ] && npx nypm i --frozen-lockfile || true',
     ),
   extraFiles: z.array(z.string()).optional().default(['.env*']),
 });
