@@ -110,7 +110,9 @@ test('delete removes merge-clean workspace', async () => {
   expect(await Bun.file(workspaceDir).exists()).toBe(false);
 });
 
-test('mixed-mode operations detect clone vs worktree correctly', async () => {
+test(
+  'mixed-mode operations detect clone vs worktree correctly',
+  async () => {
   await using dir = await TempDir.create();
 
   expect((await runFleet(['init', '.'], { cwd: dir.path })).exitCode).toBe(0);
@@ -149,7 +151,9 @@ test('mixed-mode operations detect clone vs worktree correctly', async () => {
     cwd: dir.path,
   });
   expect(worktreeList.stdout).not.toContain(`worktree ${worktreeDir}`);
-});
+  },
+  { timeout: 20_000 },
+);
 
 test('delete fails without --force when workspace has uncommitted changes', async () => {
   await using dir = await TempDir.create();

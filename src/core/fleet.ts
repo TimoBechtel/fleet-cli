@@ -8,6 +8,7 @@ import {
   type FleetConfigInput,
 } from './config.js';
 import { Backend } from './backends/backend.js';
+import { GitRepo } from './git-repo.js';
 import { Workspace } from './workspace.js';
 
 // Defaults for newly initialized Fleet projects.
@@ -125,13 +126,13 @@ export class FleetProject {
       throw new Error(`Workspace '${name}' already exists`);
     }
 
-    const projectRootWorkspace = Workspace.forRoot(this.root);
-    if (await projectRootWorkspace.hasUncommittedChanges()) {
+    const projectRootRepo = new GitRepo(this.root);
+    if (await projectRootRepo.hasUncommittedChanges()) {
       console.warn(
         chalk.yellow('Warning: project root is dirty. Ignoring dirty files.'),
       );
     }
-    const dirtyExtra = await projectRootWorkspace.hasTrackedDirtyExtraFiles(
+    const dirtyExtra = await projectRootRepo.hasTrackedDirtyExtraFiles(
       this.config.extraFiles,
     );
     if (dirtyExtra.length > 0) {
@@ -143,7 +144,7 @@ export class FleetProject {
     const backend = backendOverride ?? this.config.backend;
     const backendImpl = Backend.create(backend);
 
-    const workspace = Workspace.forCreate({
+    const workspace = new Workspace({
       projectRootDir: this.root,
       workspaceDir,
       name,

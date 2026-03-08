@@ -3,6 +3,7 @@ import { pathExists } from 'fs-extra';
 import { confirm } from '@inquirer/prompts';
 import { Backend } from '../core/backends/backend.js';
 import { FleetProject } from '../core/fleet.js';
+import { GitRepo } from '../core/git-repo.js';
 import { Workspace } from '../core/workspace.js';
 
 export async function mergeCommand(
@@ -37,14 +38,15 @@ export async function mergeCommand(
       projectRootDir: fleet.root,
       workspaceDir,
     });
-    const workspace = Workspace.forExisting({
+    const workspace = new Workspace({
       projectRootDir: fleet.root,
       workspaceDir,
       name: resolvedName,
       backend,
     });
+    const repo = new GitRepo(workspaceDir);
 
-    if (await workspace.hasUncommittedChanges()) {
+    if (await repo.hasUncommittedChanges()) {
       console.error(chalk.red('Error: workspace is not ready to merge'));
       console.error(chalk.red('  Workspace has uncommitted changes'));
       process.exit(1);
@@ -53,8 +55,8 @@ export async function mergeCommand(
     console.log(chalk.green('Ready to merge'));
     console.log();
 
-    const projectRootWorkspace = Workspace.forRoot(fleet.root);
-    const currentBranch = await projectRootWorkspace.getCurrentBranch();
+    const projectRootRepo = new GitRepo(fleet.root);
+    const currentBranch = await projectRootRepo.getCurrentBranch();
 
     if (!options?.yes) {
       const confirmed = await confirm({

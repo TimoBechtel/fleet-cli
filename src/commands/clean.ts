@@ -3,6 +3,7 @@ import { pathExists } from 'fs-extra';
 import { confirm } from '@inquirer/prompts';
 import { Backend } from '../core/backends/backend.js';
 import { FleetProject } from '../core/fleet.js';
+import { GitRepo } from '../core/git-repo.js';
 import { Workspace } from '../core/workspace.js';
 
 interface CleanableDirectory {
@@ -74,7 +75,7 @@ export async function cleanCommand(options?: { yes?: boolean }) {
     let removedCount = 0;
     for (const dir of cleanableDirectories) {
       try {
-        await dir.workspace.removeFromRoot();
+        await dir.workspace.remove();
         removedCount++;
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error);
@@ -108,12 +109,13 @@ async function checkDirectoryCleanable(args: {
     projectRootDir,
     workspaceDir,
   });
-  const workspace = Workspace.forExisting({
+  const workspace = new Workspace({
     projectRootDir,
     workspaceDir,
     name: workspaceName,
     backend,
   });
+  const repo = new GitRepo(workspaceDir);
 
   const cleanable: CleanableDirectory = {
     name: workspaceName,
@@ -123,13 +125,13 @@ async function checkDirectoryCleanable(args: {
   };
 
   // Check for uncommitted changes
-  if (await workspace.hasUncommittedChanges()) {
+  if (await repo.hasUncommittedChanges()) {
     // Don't clean directories with uncommitted changes
     return null;
   }
 
   try {
-    if (!(await workspace.isDiverged(projectRootDir))) {
+    if (!(await repo.isDiverged(projectRootDir))) {
       cleanable.reason.push(`Workspace is merged into project root`);
     } else {
       // Don't clean diverged workspaces

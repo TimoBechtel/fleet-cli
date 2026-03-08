@@ -3,8 +3,8 @@ import { ensureDir, pathExists } from 'fs-extra';
 import { readdir } from 'node:fs/promises';
 import path from 'node:path';
 import { FleetProject } from '../core/fleet.js';
+import { GitRepo } from '../core/git-repo.js';
 import { ShellIntegration } from '../core/shell-integration.js';
-import { Workspace } from '../core/workspace.js';
 
 interface InitOptions {
   stealth?: boolean;
@@ -39,7 +39,7 @@ export async function initCommand(name?: string, options?: InitOptions) {
       // either not exist yet, or is empty
       !(await pathExists(targetDir)) || (await readdir(targetDir)).length === 0;
 
-    const isGitRepo = await Workspace.isGitRoot(targetDir);
+    const isGitRepo = await GitRepo.isGitRoot(targetDir);
 
     if (!isNewProject) {
       if (!isGitRepo) {
@@ -50,7 +50,6 @@ export async function initCommand(name?: string, options?: InitOptions) {
         );
         process.exit(1);
       }
-
     }
 
     if (isNewProject) {
@@ -62,15 +61,15 @@ export async function initCommand(name?: string, options?: InitOptions) {
     await ensureDir(targetDir);
 
     // Initialize git if this is a new project and no git repo exists
-    const workspace = Workspace.forRoot(targetDir);
+    const repo = new GitRepo(targetDir);
     if (isNewProject && !isGitRepo) {
-      await workspace.initRepository();
+      await repo.initRepository();
     }
 
     await FleetProject.init(targetDir, { stealth: options?.stealth });
 
     if (isNewProject && !options?.stealth) {
-      await workspace.commitChanges('Initialize Fleet');
+      await repo.commitChanges('Initialize Fleet');
     }
 
     console.log();
