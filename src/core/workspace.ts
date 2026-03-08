@@ -7,13 +7,15 @@ import type { Backend } from './backends/backend.js';
 import type { FleetConfig } from './config.js';
 
 type RootContext = { kind: 'root' };
-type ExistingContext = {
-  kind: 'existing';
+type BackendContext = {
   projectRootDir: string;
   name: string;
   backend: Backend;
 };
-type CreateContext = ExistingContext & {
+type ExistingContext = BackendContext & {
+  kind: 'existing';
+};
+type CreateContext = BackendContext & {
   kind: 'create';
   config: FleetConfig;
 };
@@ -32,7 +34,7 @@ export class Workspace<Context extends WorkspaceContext = WorkspaceContext> {
 
   // Use factories so required context is always present for each use case.
   static forRoot(dir: string): Workspace<RootContext> {
-    return new Workspace(dir, { kind: 'root' });
+    return new Workspace<RootContext>(dir, { kind: 'root' });
   }
 
   static forExisting(args: {
@@ -41,7 +43,7 @@ export class Workspace<Context extends WorkspaceContext = WorkspaceContext> {
     name: string;
     backend: Backend;
   }): Workspace<ExistingContext> {
-    return new Workspace(args.workspaceDir, {
+    return new Workspace<ExistingContext>(args.workspaceDir, {
       kind: 'existing',
       projectRootDir: args.projectRootDir,
       name: args.name,
@@ -56,7 +58,7 @@ export class Workspace<Context extends WorkspaceContext = WorkspaceContext> {
     backend: Backend;
     config: FleetConfig;
   }): Workspace<CreateContext> {
-    return new Workspace(args.workspaceDir, {
+    return new Workspace<CreateContext>(args.workspaceDir, {
       kind: 'create',
       projectRootDir: args.projectRootDir,
       name: args.name,
@@ -299,3 +301,7 @@ export class Workspace<Context extends WorkspaceContext = WorkspaceContext> {
     }
   }
 }
+
+export type RootWorkspace = Workspace<RootContext>;
+export type ExistingWorkspace = Workspace<ExistingContext>;
+export type CreateWorkspace = Workspace<CreateContext>;

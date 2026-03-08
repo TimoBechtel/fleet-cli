@@ -141,7 +141,7 @@ export class FleetProject {
     }
 
     const backend = backendOverride ?? this.config.backend;
-    const backendImpl = await Backend.create(backend);
+    const backendImpl = Backend.create(backend);
 
     const workspace = Workspace.forCreate({
       projectRootDir: this.root,
