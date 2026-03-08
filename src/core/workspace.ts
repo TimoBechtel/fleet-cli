@@ -6,32 +6,79 @@ import { simpleGit, type SimpleGit } from 'simple-git';
 import type { Backend } from './backends/backend.js';
 import type { FleetConfig } from './config.js';
 
-export class Workspace {
+type RootContext = { kind: 'root' };
+type ExistingContext = {
+  kind: 'existing';
+  projectRootDir: string;
+  name: string;
+  backend: Backend;
+};
+type CreateContext = ExistingContext & {
+  kind: 'create';
+  config: FleetConfig;
+};
+type WorkspaceContext = RootContext | ExistingContext | CreateContext;
+
+// Workspace helper for git operations and backend actions on a directory.
+export class Workspace<Context extends WorkspaceContext = WorkspaceContext> {
   private static readonly FALLBACK_DEFAULT_GIT_BRANCH = 'main';
 
-  private git?: SimpleGit;
-  private projectRootDir?: string;
-  private name?: string;
-  private backend?: Backend;
-  private config?: FleetConfig;
+  private gitClient?: SimpleGit;
 
-  constructor(
-    private workingDir: string,
-    options?: {
-      projectRootDir?: string;
-      name?: string;
-      backend?: Backend;
-      config?: FleetConfig;
-    },
-  ) {
-    this.projectRootDir = options?.projectRootDir;
-    this.name = options?.name;
-    this.backend = options?.backend;
-    this.config = options?.config;
+  private constructor(
+    private readonly workingDir: string,
+    private readonly context: Context,
+  ) {}
+
+  // Use factories so required context is always present for each use case.
+  static forRoot(dir: string): Workspace<RootContext> {
+    return new Workspace(dir, { kind: 'root' });
   }
 
-  async create(baseBranch?: string): Promise<void> {
-    const { projectRootDir, name, backend, config } = this.getCreateContext();
+  static forExisting(args: {
+    projectRootDir: string;
+    workspaceDir: string;
+    name: string;
+    backend: Backend;
+  }): Workspace<ExistingContext> {
+    return new Workspace(args.workspaceDir, {
+      kind: 'existing',
+      projectRootDir: args.projectRootDir,
+      name: args.name,
+      backend: args.backend,
+    });
+  }
+
+  static forCreate(args: {
+    projectRootDir: string;
+    workspaceDir: string;
+    name: string;
+    backend: Backend;
+    config: FleetConfig;
+  }): Workspace<CreateContext> {
+    return new Workspace(args.workspaceDir, {
+      kind: 'create',
+      projectRootDir: args.projectRootDir,
+      name: args.name,
+      backend: args.backend,
+      config: args.config,
+    });
+  }
+
+  static async isGitRoot(dir: string): Promise<boolean> {
+    try {
+      const gitDir = path.join(dir, '.git');
+      return await pathExists(gitDir);
+    } catch {
+      return false;
+    }
+  }
+
+  async create(
+    this: Workspace<CreateContext>,
+    baseBranch?: string,
+  ): Promise<void> {
+    const { projectRootDir, name, backend, config } = this.context;
     await backend.createWorkspace({
       projectRootDir,
       workspaceDir: this.workingDir,
@@ -43,8 +90,10 @@ export class Workspace {
     await this.ensureWorkspaceMarker();
   }
 
-  async mergeIntoRoot(): Promise<void> {
-    const { projectRootDir, name, backend } = this.getBackendContext();
+  async mergeIntoRoot(
+    this: Workspace<ExistingContext> | Workspace<CreateContext>,
+  ): Promise<void> {
+    const { projectRootDir, name, backend } = this.context;
     await backend.mergeWorkspace({
       projectRootDir,
       workspaceDir: this.workingDir,
@@ -52,8 +101,11 @@ export class Workspace {
     });
   }
 
-  async removeFromRoot(options?: { force?: boolean }): Promise<void> {
-    const { projectRootDir, name, backend } = this.getBackendContext();
+  async removeFromRoot(
+    this: Workspace<ExistingContext> | Workspace<CreateContext>,
+    options?: { force?: boolean },
+  ): Promise<void> {
+    const { projectRootDir, name, backend } = this.context;
     await backend.removeWorkspace({
       projectRootDir,
       workspaceDir: this.workingDir,
@@ -62,18 +114,9 @@ export class Workspace {
     });
   }
 
-  async isGitRoot(): Promise<boolean> {
-    try {
-      const gitDir = path.join(this.workingDir, '.git');
-      return await pathExists(gitDir);
-    } catch {
-      return false;
-    }
-  }
-
   async hasUncommittedChanges(): Promise<boolean> {
     try {
-      const status = await this.getGit().status();
+      const status = await this.git().status();
       return status.files.length > 0;
     } catch {
       return false;
@@ -83,8 +126,8 @@ export class Workspace {
   async getTrackedDirtyFiles(): Promise<string[]> {
     try {
       const [unstaged, staged] = await Promise.all([
-        this.getGit().diff(['--name-only']),
-        this.getGit().diff(['--cached', '--name-only']),
+        this.git().diff(['--name-only']),
+        this.git().diff(['--cached', '--name-only']),
       ]);
       const trackedDirtyFiles = new Set<string>();
       for (const line of [...unstaged.split('\n'), ...staged.split('\n')]) {
@@ -120,14 +163,14 @@ export class Workspace {
 
   async getMainBranch(): Promise<string> {
     try {
-      const result = await this.getGit().raw([
+      const result = await this.git().raw([
         'symbolic-ref',
         'refs/remotes/origin/HEAD',
       ]);
       return result.trim().replace('refs/remotes/origin/', '');
     } catch {
       try {
-        const current = await this.getGit().branch();
+        const current = await this.git().branch();
         return current.current || Workspace.FALLBACK_DEFAULT_GIT_BRANCH;
       } catch {
         return Workspace.FALLBACK_DEFAULT_GIT_BRANCH;
@@ -137,17 +180,17 @@ export class Workspace {
 
   async isDiverged(projectRootDir: string): Promise<boolean> {
     try {
-      const currentHead = (await this.getGit().revparse(['HEAD'])).trim();
-      const projectRootWorkspace = new Workspace(projectRootDir);
+      const currentHead = (await this.git().revparse(['HEAD'])).trim();
+      const projectRootWorkspace = Workspace.forRoot(projectRootDir);
       const projectRootHead = (await projectRootWorkspace
-        .getGit()
+        .git()
         .revparse(['HEAD'])).trim();
 
       if (currentHead === projectRootHead) {
         return false;
       }
 
-      const revList = await projectRootWorkspace.getGit().raw([
+      const revList = await projectRootWorkspace.git().raw([
         'rev-list',
         '--left-right',
         '--count',
@@ -162,62 +205,35 @@ export class Workspace {
   }
 
   async getCurrentBranch(): Promise<string | null> {
-    return (await this.getGit().branch()).current || null;
+    return (await this.git().branch()).current || null;
   }
 
   async commitChanges(message: string): Promise<void> {
-    await this.getGit().add('--all');
-    await this.getGit().commit(message);
+    await this.git().add('--all');
+    await this.git().commit(message);
   }
 
   async initRepository(): Promise<void> {
-    await this.getGit().init();
-    await this.getGit().add('--all');
-    await this.getGit().raw(['commit', '--allow-empty', '-m', 'Initial commit']);
+    await this.git().init();
+    await this.git().add('--all');
+    await this.git().raw(['commit', '--allow-empty', '-m', 'Initial commit']);
   }
 
-  private getGit(): SimpleGit {
-    if (!this.git) {
-      this.git = simpleGit(this.workingDir);
+  private git(): SimpleGit {
+    if (!this.gitClient) {
+      this.gitClient = simpleGit(this.workingDir);
     }
-    return this.git;
+    return this.gitClient;
   }
 
-  private getBackendContext(): {
-    projectRootDir: string;
-    name: string;
-    backend: Backend;
-  } {
-    if (!this.projectRootDir || !this.name || !this.backend) {
-      throw new Error('Workspace is missing project root context');
-    }
-    return {
-      projectRootDir: this.projectRootDir,
-      name: this.name,
-      backend: this.backend,
-    };
-  }
-
-  private getCreateContext(): {
-    projectRootDir: string;
-    name: string;
-    backend: Backend;
-    config: FleetConfig;
-  } {
-    const { projectRootDir, name, backend } = this.getBackendContext();
-    if (!this.config) {
-      throw new Error('Workspace is missing config');
-    }
-    return { projectRootDir, name, backend, config: this.config };
-  }
-
-  private async ensureWorkspaceMarker(): Promise<void> {
-    if (!this.projectRootDir) {
-      throw new Error('Workspace is missing project root context');
-    }
+  // Write the workspace marker so Fleet can identify this directory.
+  private async ensureWorkspaceMarker(
+    this: Workspace<CreateContext>,
+  ): Promise<void> {
+    const { projectRootDir } = this.context;
     await ensureDir(path.join(this.workingDir, '.fleet'));
     await writeFile(path.join(this.workingDir, '.fleet', '.workspace'), '');
-    const rootGitignore = path.join(this.projectRootDir, '.fleet', '.gitignore');
+    const rootGitignore = path.join(projectRootDir, '.fleet', '.gitignore');
     const workspaceGitignore = path.join(
       this.workingDir,
       '.fleet',
@@ -232,11 +248,12 @@ export class Workspace {
   }
 
   private async runPostInitSteps(
+    this: Workspace<CreateContext>,
     targetDir: string,
     config: FleetConfig,
   ): Promise<void> {
     if (config.extraFiles.length) {
-      const sourceDir = this.projectRootDir ?? this.workingDir;
+      const sourceDir = this.context.projectRootDir;
       await this.copyExtraFiles(sourceDir, targetDir, config.extraFiles);
     }
 

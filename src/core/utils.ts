@@ -1,5 +1,4 @@
 import path from 'node:path';
-import type { FleetConfig } from './config.js';
 import type { FleetProject } from './fleet';
 
 // Should we move this to FLeetProject?
@@ -50,12 +49,4 @@ export async function getCurrentWorkspaceName(
     }
   }
   return null;
-}
-
-export function parseBackendOption(
-  input?: string,
-): FleetConfig['backend'] | undefined {
-  if (!input) return undefined;
-  if (input === 'worktree' || input === 'clone') return input;
-  throw new Error(`Invalid backend "${input}". Use "worktree" or "clone".`);
 }

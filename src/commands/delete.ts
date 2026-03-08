@@ -36,8 +36,9 @@ export async function deleteCommand(
       projectRootDir: fleet.root,
       workspaceDir,
     });
-    const workspace = new Workspace(workspaceDir, {
+    const workspace = Workspace.forExisting({
       projectRootDir: fleet.root,
+      workspaceDir,
       name: resolvedName,
       backend,
     });

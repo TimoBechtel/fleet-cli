@@ -1,10 +1,10 @@
 import { select } from '@inquirer/prompts';
 import chalk from 'chalk';
+import type { FleetConfig } from '../core/config.js';
 import { FleetProject } from '../core/fleet.js';
 import { ShellIntegration } from '../core/shell-integration.js';
 import {
   getCurrentWorkspaceName,
-  parseBackendOption,
   resolveWorkspaceDirectory,
 } from '../core/utils.js';
 
@@ -14,7 +14,7 @@ export async function switchCommand(
     add?: boolean;
     root?: boolean;
     base?: string;
-    backend?: string;
+    backend?: FleetConfig['backend'];
   },
 ) {
   try {
@@ -77,8 +77,7 @@ export async function switchCommand(
 
     if (!targetDir) {
       if (options?.add) {
-        const backend = parseBackendOption(options.backend);
-        await fleet.createWorkspace(workspaceName, options.base, backend);
+        await fleet.createWorkspace(workspaceName, options.base, options.backend);
         targetDir = fleet.buildWorkspacePath(workspaceName);
 
         console.log(chalk.green(`Done: workspace "${workspaceName}" created`));

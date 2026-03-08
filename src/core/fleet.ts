@@ -10,6 +10,7 @@ import {
 import { Backend } from './backends/backend.js';
 import { Workspace } from './workspace.js';
 
+// Defaults for newly initialized Fleet projects.
 const PROJECT_CONFIG_DEFAULTS: FleetConfigInput = {};
 
 export class FleetProject {
@@ -42,6 +43,7 @@ export class FleetProject {
     );
   }
 
+  // Walk up from a directory to find the nearest Fleet project root.
   static async findFleetProject(
     startDir: string = process.cwd(),
   ): Promise<FleetProject | null> {
@@ -123,7 +125,7 @@ export class FleetProject {
       throw new Error(`Workspace '${name}' already exists`);
     }
 
-    const projectRootWorkspace = new Workspace(this.root);
+    const projectRootWorkspace = Workspace.forRoot(this.root);
     if (await projectRootWorkspace.hasUncommittedChanges()) {
       console.warn(
         chalk.yellow('Warning: project root is dirty. Ignoring dirty files.'),
@@ -139,10 +141,11 @@ export class FleetProject {
     }
 
     const backend = backendOverride ?? this.config.backend;
-    const backendImpl = Backend.create(backend);
+    const backendImpl = await Backend.create(backend);
 
-    const workspace = new Workspace(workspaceDir, {
+    const workspace = Workspace.forCreate({
       projectRootDir: this.root,
+      workspaceDir,
       name,
       backend: backendImpl,
       config: this.config,

@@ -37,8 +37,9 @@ export async function mergeCommand(
       projectRootDir: fleet.root,
       workspaceDir,
     });
-    const workspace = new Workspace(workspaceDir, {
+    const workspace = Workspace.forExisting({
       projectRootDir: fleet.root,
+      workspaceDir,
       name: resolvedName,
       backend,
     });
@@ -52,7 +53,7 @@ export async function mergeCommand(
     console.log(chalk.green('Ready to merge'));
     console.log();
 
-    const projectRootWorkspace = new Workspace(fleet.root);
+    const projectRootWorkspace = Workspace.forRoot(fleet.root);
     const currentBranch = await projectRootWorkspace.getCurrentBranch();
 
     if (!options?.yes) {

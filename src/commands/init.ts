@@ -39,7 +39,7 @@ export async function initCommand(name?: string, options?: InitOptions) {
       // either not exist yet, or is empty
       !(await pathExists(targetDir)) || (await readdir(targetDir)).length === 0;
 
-    const isGitRepo = await new Workspace(targetDir).isGitRoot();
+    const isGitRepo = await Workspace.isGitRoot(targetDir);
 
     if (!isNewProject) {
       if (!isGitRepo) {
@@ -62,7 +62,7 @@ export async function initCommand(name?: string, options?: InitOptions) {
     await ensureDir(targetDir);
 
     // Initialize git if this is a new project and no git repo exists
-    const workspace = new Workspace(targetDir);
+    const workspace = Workspace.forRoot(targetDir);
     if (isNewProject && !isGitRepo) {
       await workspace.initRepository();
     }

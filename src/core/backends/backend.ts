@@ -1,51 +1,105 @@
 import type { FleetConfig } from '../config.js';
-import { CloneBackend } from './clone-backend.js';
-import { WorktreeBackend } from './worktree-backend.js';
 
-export interface Backend {
-  createWorkspace(args: {
+export abstract class Backend {
+  static async detect(args: {
+    projectRootDir: string;
+    workspaceDir: string;
+  }): Promise<Backend> {
+    const { WorktreeBackend } = await import('./worktree-backend.js');
+    const { CloneBackend } = await import('./clone-backend.js');
+
+    const worktreeBackend = new WorktreeBackend();
+    if (await worktreeBackend.matchesWorkspaceDir(args)) {
+      return worktreeBackend;
+    }
+
+    return new CloneBackend();
+  }
+
+  static create(kind: FleetConfig['backend']): Backend {
+    return new LazyBackend(kind);
+  }
+
+  abstract createWorkspace(args: {
     projectRootDir: string;
     workspaceDir: string;
     name: string;
     config: FleetConfig;
     baseBranch?: string;
   }): Promise<void>;
-  mergeWorkspace(args: {
+  abstract mergeWorkspace(args: {
     projectRootDir: string;
     workspaceDir: string;
     name: string;
   }): Promise<void>;
-  removeWorkspace(args: {
+  abstract removeWorkspace(args: {
     projectRootDir: string;
     workspaceDir: string;
     name: string;
     force?: boolean;
   }): Promise<void>;
-  matchesWorkspaceDir(args: {
+  abstract matchesWorkspaceDir(args: {
     projectRootDir: string;
     workspaceDir: string;
   }): Promise<boolean>;
 }
 
-export function createBackend(kind: FleetConfig['backend']): Backend {
-  return kind === 'worktree' ? new WorktreeBackend() : new CloneBackend();
-}
+class LazyBackend extends Backend {
+  private backendPromise?: Promise<Backend>;
 
-export class BackendResolver {
-  static async detect(args: {
+  constructor(private readonly kind: FleetConfig['backend']) {
+    super();
+  }
+
+  private async resolve(): Promise<Backend> {
+    if (!this.backendPromise) {
+      this.backendPromise = (async () => {
+        if (this.kind === 'worktree') {
+          const { WorktreeBackend } = await import('./worktree-backend.js');
+          return new WorktreeBackend();
+        }
+        const { CloneBackend } = await import('./clone-backend.js');
+        return new CloneBackend();
+      })();
+    }
+    return this.backendPromise;
+  }
+
+  async createWorkspace(args: {
     projectRootDir: string;
     workspaceDir: string;
-  }): Promise<Backend> {
-    const worktreeBackend = new WorktreeBackend();
-    if (await worktreeBackend.matchesWorkspaceDir(args)) {
-      return worktreeBackend;
-    }
-    return new CloneBackend();
+    name: string;
+    config: FleetConfig;
+    baseBranch?: string;
+  }): Promise<void> {
+    const backend = await this.resolve();
+    await backend.createWorkspace(args);
   }
 
-  static create(kind: FleetConfig['backend']): Backend {
-    return createBackend(kind);
+  async mergeWorkspace(args: {
+    projectRootDir: string;
+    workspaceDir: string;
+    name: string;
+  }): Promise<void> {
+    const backend = await this.resolve();
+    await backend.mergeWorkspace(args);
+  }
+
+  async removeWorkspace(args: {
+    projectRootDir: string;
+    workspaceDir: string;
+    name: string;
+    force?: boolean;
+  }): Promise<void> {
+    const backend = await this.resolve();
+    await backend.removeWorkspace(args);
+  }
+
+  async matchesWorkspaceDir(args: {
+    projectRootDir: string;
+    workspaceDir: string;
+  }): Promise<boolean> {
+    const backend = await this.resolve();
+    return backend.matchesWorkspaceDir(args);
   }
 }
-
-export const Backend = BackendResolver;

@@ -1,4 +1,4 @@
-import { Command } from 'commander';
+import { Command, Option } from 'commander';
 import { cleanCommand } from './commands/clean.js';
 import { completionCommand, createCompleteCommand } from './commands/completion.js';
 import { configCommand } from './commands/config.js';
@@ -48,7 +48,12 @@ export function createProgram(): Command {
       'Clone from specific branch instead of current',
     )
     .option('-s, --switch', 'Switch to the new workspace after creation')
-    .option('--backend <backend>', 'Workspace backend (worktree|clone)')
+    .addOption(
+      new Option('--backend <backend>', 'Workspace backend').choices([
+        'worktree',
+        'clone',
+      ]),
+    )
     .action(createCommand);
 
   program
@@ -58,7 +63,12 @@ export function createProgram(): Command {
     .argument('[workspace]', 'Workspace to switch to')
     .option('-a, --add', "Create workspace if it doesn't exist")
     .option('-b, --base <branch>', 'Clone from specific branch instead of current')
-    .option('--backend <backend>', 'Workspace backend (worktree|clone)')
+    .addOption(
+      new Option('--backend <backend>', 'Workspace backend').choices([
+        'worktree',
+        'clone',
+      ]),
+    )
     .option('-r, --root', 'Switch to project root')
     .action(switchCommand);
 

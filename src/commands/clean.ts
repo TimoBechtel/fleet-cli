@@ -108,8 +108,9 @@ async function checkDirectoryCleanable(args: {
     projectRootDir,
     workspaceDir,
   });
-  const workspace = new Workspace(workspaceDir, {
+  const workspace = Workspace.forExisting({
     projectRootDir,
+    workspaceDir,
     name: workspaceName,
     backend,
   });

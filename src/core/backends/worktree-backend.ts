@@ -2,9 +2,9 @@ import { ensureDir } from 'fs-extra';
 import path from 'node:path';
 import { simpleGit } from 'simple-git';
 import type { FleetConfig } from '../config.js';
-import type { Backend } from './backend.js';
+import { Backend } from './backend.js';
 
-export class WorktreeBackend implements Backend {
+export class WorktreeBackend extends Backend {
   private static worktreePathsCache = new Map<string, Promise<Set<string>>>();
   async createWorkspace(args: {
     projectRootDir: string;

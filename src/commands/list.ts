@@ -67,7 +67,7 @@ async function printWorkspaceStatus(
   console.log(line);
 
   if (verbose && gitStatus.isRepo) {
-    const workspace = new Workspace(dirPath);
+    const workspace = Workspace.forRoot(dirPath);
     const branch = (await workspace.getCurrentBranch()) ?? 'unknown';
     const hasChanges = await workspace.hasUncommittedChanges();
     const diverged = await workspace.isDiverged(fleet.root);
@@ -82,8 +82,8 @@ async function printWorkspaceStatus(
 }
 
 async function getGitStatus(dirPath: string) {
-  const workspace = new Workspace(dirPath);
-  if (await workspace.isGitRoot()) {
+  const workspace = Workspace.forRoot(dirPath);
+  if (await Workspace.isGitRoot(dirPath)) {
     const hasChanges = await workspace.hasUncommittedChanges();
     return {
       isRepo: true,
