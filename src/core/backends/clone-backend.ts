@@ -2,9 +2,9 @@ import { ensureDir, remove } from 'fs-extra';
 import path from 'node:path';
 import { simpleGit } from 'simple-git';
 import type { FleetConfig } from '../config.js';
-import { Backend } from './backend.js';
+import type { Backend } from './backend.js';
 
-export class CloneBackend extends Backend {
+export class CloneBackend implements Backend {
   async createWorkspace(args: {
     projectRootDir: string;
     workspaceDir: string;

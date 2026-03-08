@@ -3,14 +3,13 @@ import { pathExists } from 'fs-extra';
 import { confirm } from '@inquirer/prompts';
 import { Backend } from '../core/backends/backend.js';
 import { FleetProject } from '../core/fleet.js';
-import type { ExistingWorkspace } from '../core/workspace.js';
 import { Workspace } from '../core/workspace.js';
 
 interface CleanableDirectory {
   name: string;
   path: string;
   reason: string[];
-  workspace: ExistingWorkspace;
+  workspace: Workspace;
 }
 
 export async function cleanCommand(options?: { yes?: boolean }) {
