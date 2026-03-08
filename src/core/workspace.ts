@@ -1,4 +1,4 @@
-import { copy, ensureDir, pathExists } from 'fs-extra';
+import { copy, ensureDir, pathExists, remove } from 'fs-extra';
 import { execSync } from 'node:child_process';
 import path from 'node:path';
 import { simpleGit, type SimpleGit } from 'simple-git';
@@ -9,15 +9,27 @@ export class Workspace {
   private static readonly FALLBACK_DEFAULT_GIT_BRANCH = 'main';
 
   private git: SimpleGit;
+  private projectRootDir?: string;
+  private name?: string;
+  private kind?: 'worktree' | 'clone';
 
-  constructor(private workingDir: string) {
+  constructor(
+    private workingDir: string,
+    options?: {
+      projectRootDir?: string;
+      name?: string;
+      kind?: 'worktree' | 'clone';
+    },
+  ) {
     this.git = simpleGit(workingDir);
+    this.projectRootDir = options?.projectRootDir;
+    this.name = options?.name;
+    this.kind = options?.kind;
   }
 
-  static async listWorktreePaths(projectRootDir: string): Promise<Set<string>> {
+  async listWorktreePaths(): Promise<Set<string>> {
     try {
-      const git = simpleGit(projectRootDir);
-      const output = await git.raw(['worktree', 'list', '--porcelain']);
+      const output = await this.git.raw(['worktree', 'list', '--porcelain']);
       const paths = new Set<string>();
       for (const line of output.split('\n')) {
         if (!line.startsWith('worktree ')) continue;
@@ -32,50 +44,33 @@ export class Workspace {
     }
   }
 
-  static async isWorktreePath(
-    projectRootDir: string,
-    workspaceDir: string,
-  ): Promise<boolean> {
-    const worktrees = await Workspace.listWorktreePaths(projectRootDir);
+  async isWorktreePath(workspaceDir: string): Promise<boolean> {
+    const worktrees = await this.listWorktreePaths();
     return worktrees.has(path.resolve(workspaceDir));
   }
 
-  static async removeWorktree(
-    projectRootDir: string,
-    workspaceDir: string,
-    force = false,
-  ): Promise<void> {
-    const git = simpleGit(projectRootDir);
+  async removeWorktree(workspaceDir: string, force = false): Promise<void> {
     const args = ['worktree', 'remove'];
     if (force) args.push('--force');
     args.push(workspaceDir);
-    await git.raw(args);
+    await this.git.raw(args);
   }
 
-  static async deleteBranch(
-    projectRootDir: string,
-    branchName: string,
-    force = false,
-  ): Promise<void> {
-    const git = simpleGit(projectRootDir);
+  async deleteBranch(branchName: string, force = false): Promise<void> {
     try {
-      await git.branch([force ? '-D' : '-d', branchName]);
+      await this.git.branch([force ? '-D' : '-d', branchName]);
     } catch {
       // ignore if branch doesn't exist or can't be deleted
     }
   }
 
-  static async mergeBranchIntoCurrent(
-    projectRootDir: string,
-    branchName: string,
-  ): Promise<void> {
-    const git = simpleGit(projectRootDir);
-    await git.raw(['merge', branchName]);
+  async mergeBranchIntoCurrent(branchName: string): Promise<void> {
+    await this.git.raw(['merge', branchName]);
   }
 
-  static async isGitRoot(dir: string): Promise<boolean> {
+  async isGitRoot(): Promise<boolean> {
     try {
-      const gitDir = path.join(dir, '.git');
+      const gitDir = path.join(this.workingDir, '.git');
       return await pathExists(gitDir);
     } catch {
       return false;
@@ -176,6 +171,59 @@ export class Workspace {
     } catch {
       return true; // assume diverged if we can't determine
     }
+  }
+
+  async mergeIntoRoot(): Promise<void> {
+    const { projectRootDir, name, kind } = this.getRootContext();
+    const projectRootWorkspace = new Workspace(projectRootDir);
+
+    if (kind === 'worktree') {
+      try {
+        await projectRootWorkspace.mergeBranchIntoCurrent(name);
+      } catch {
+        const relativePath = path.relative(process.cwd(), projectRootDir);
+        throw new Error(
+          `\nMerge conflicts detected. \nPlease resolve them manually in "${relativePath}" and complete the merge.`,
+        );
+      }
+      await projectRootWorkspace.removeWorktree(this.workingDir);
+      await projectRootWorkspace.deleteBranch(name);
+      return;
+    }
+
+    await projectRootWorkspace.mergeWorkspace(name, this.workingDir);
+    await remove(this.workingDir);
+  }
+
+  async removeFromRoot(options?: { force?: boolean }): Promise<void> {
+    const { projectRootDir, name, kind } = this.getRootContext();
+    const projectRootWorkspace = new Workspace(projectRootDir);
+
+    if (kind === 'worktree') {
+      await projectRootWorkspace.removeWorktree(
+        this.workingDir,
+        options?.force,
+      );
+      await projectRootWorkspace.deleteBranch(name, options?.force);
+      return;
+    }
+
+    await remove(this.workingDir);
+  }
+
+  private getRootContext(): {
+    projectRootDir: string;
+    name: string;
+    kind: 'worktree' | 'clone';
+  } {
+    if (!this.projectRootDir || !this.name || !this.kind) {
+      throw new Error('Workspace is missing project root context');
+    }
+    return {
+      projectRootDir: this.projectRootDir,
+      name: this.name,
+      kind: this.kind,
+    };
   }
 
   /**
@@ -284,7 +332,7 @@ export class Workspace {
   async initRepository(): Promise<void> {
     await this.git.init();
     await this.git.add('--all');
-    await this.git.commit('Initial commit');
+    await this.git.raw(['commit', '--allow-empty', '-m', 'Initial commit']);
   }
 
   /**
@@ -337,4 +385,21 @@ export class Workspace {
       // branch deletion might fail if it was already deleted or doesn't exist, that's ok
     }
   }
+}
+
+export async function openWorkspace(args: {
+  projectRootDir: string;
+  workspaceDir: string;
+  name: string;
+  worktreePaths?: Set<string>;
+}): Promise<Workspace> {
+  const projectRootWorkspace = new Workspace(args.projectRootDir);
+  const isWorktree =
+    args.worktreePaths?.has(path.resolve(args.workspaceDir)) ??
+    (await projectRootWorkspace.isWorktreePath(args.workspaceDir));
+  return new Workspace(args.workspaceDir, {
+    projectRootDir: args.projectRootDir,
+    name: args.name,
+    kind: isWorktree ? 'worktree' : 'clone',
+  });
 }

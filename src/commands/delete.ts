@@ -1,8 +1,8 @@
 import chalk from 'chalk';
-import { pathExists, remove } from 'fs-extra';
+import { pathExists } from 'fs-extra';
 import { confirm } from '@inquirer/prompts';
 import { FleetProject } from '../core/fleet.js';
-import { Workspace } from '../core/workspace.js';
+import { openWorkspace } from '../core/workspace.js';
 
 export async function deleteCommand(
   workspaceName: string,
@@ -31,14 +31,13 @@ export async function deleteCommand(
       process.exit(1);
     }
 
-    const isWorktree = await Workspace.isWorktreePath(
-      fleet.root,
+    const workspace = await openWorkspace({
+      projectRootDir: fleet.root,
       workspaceDir,
-    );
+      name: resolvedName,
+    });
 
     if (!options?.force) {
-      const workspace = new Workspace(workspaceDir);
-
       if (await workspace.hasUncommittedChanges()) {
         console.error(chalk.red('Error: workspace is not safe to delete'));
         console.error(chalk.red('  Workspace has uncommitted changes'));
@@ -70,12 +69,7 @@ export async function deleteCommand(
       return;
     }
 
-    if (isWorktree) {
-      await Workspace.removeWorktree(fleet.root, workspaceDir, options?.force);
-      await Workspace.deleteBranch(fleet.root, resolvedName, options?.force);
-    } else {
-      await remove(workspaceDir);
-    }
+    await workspace.removeFromRoot({ force: options?.force });
     console.log(chalk.green(`Done: deleted workspace "${resolvedName}"`));
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);

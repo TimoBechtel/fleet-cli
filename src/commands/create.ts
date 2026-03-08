@@ -1,6 +1,7 @@
 import chalk from 'chalk';
 import { FleetProject } from '../core/fleet.js';
 import { ShellIntegration } from '../core/shell-integration.js';
+import { parseBackendOption } from '../core/utils.js';
 
 interface CreateOptions {
   base?: string;
@@ -37,14 +38,4 @@ export async function createCommand(
     console.error(chalk.red('Error:'), message);
     process.exit(1);
   }
-}
-
-function parseBackendOption(
-  backend?: string,
-): 'worktree' | 'clone' | undefined {
-  if (!backend) return undefined;
-  if (backend === 'worktree' || backend === 'clone') return backend;
-  throw new Error(
-    `Invalid backend "${backend}". Use "worktree" or "clone".`,
-  );
 }

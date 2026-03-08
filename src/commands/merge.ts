@@ -1,9 +1,8 @@
 import chalk from 'chalk';
-import { pathExists, remove } from 'fs-extra';
+import { pathExists } from 'fs-extra';
 import { confirm } from '@inquirer/prompts';
-import path from 'node:path';
 import { FleetProject } from '../core/fleet.js';
-import { Workspace } from '../core/workspace.js';
+import { Workspace, openWorkspace } from '../core/workspace.js';
 
 export async function mergeCommand(
   workspaceName: string,
@@ -33,11 +32,11 @@ export async function mergeCommand(
       process.exit(1);
     }
 
-    const isWorktree = await Workspace.isWorktreePath(
-      fleet.root,
+    const workspace = await openWorkspace({
+      projectRootDir: fleet.root,
       workspaceDir,
-    );
-    const workspace = new Workspace(workspaceDir);
+      name: resolvedName,
+    });
 
     if (await workspace.hasUncommittedChanges()) {
       console.error(chalk.red('Error: workspace is not ready to merge'));
@@ -66,21 +65,7 @@ export async function mergeCommand(
     }
 
     // perform the merge
-    if (isWorktree) {
-      try {
-        await Workspace.mergeBranchIntoCurrent(fleet.root, resolvedName);
-      } catch (error: unknown) {
-        const relativePath = path.relative(process.cwd(), fleet.root);
-        throw new Error(
-          `\nMerge conflicts detected. \nPlease resolve them manually in "${relativePath}" and complete the merge.`,
-        );
-      }
-      await Workspace.removeWorktree(fleet.root, workspaceDir);
-      await Workspace.deleteBranch(fleet.root, resolvedName);
-    } else {
-      await projectRootWorkspace.mergeWorkspace(resolvedName, workspaceDir);
-      await remove(workspaceDir);
-    }
+    await workspace.mergeIntoRoot();
 
     console.log(
       chalk.green(

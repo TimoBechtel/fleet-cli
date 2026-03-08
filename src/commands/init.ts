@@ -39,7 +39,7 @@ export async function initCommand(name?: string, options?: InitOptions) {
       // either not exist yet, or is empty
       !(await pathExists(targetDir)) || (await readdir(targetDir)).length === 0;
 
-    const isGitRepo = await Workspace.isGitRoot(targetDir);
+    const isGitRepo = await new Workspace(targetDir).isGitRoot();
 
     if (!isNewProject) {
       if (!isGitRepo) {

@@ -82,8 +82,8 @@ async function printWorkspaceStatus(
 }
 
 async function getGitStatus(dirPath: string) {
-  if (await Workspace.isGitRoot(dirPath)) {
-    const workspace = new Workspace(dirPath);
+  const workspace = new Workspace(dirPath);
+  if (await workspace.isGitRoot()) {
     const hasChanges = await workspace.hasUncommittedChanges();
     return {
       isRepo: true,

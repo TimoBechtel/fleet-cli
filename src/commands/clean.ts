@@ -1,15 +1,14 @@
 import chalk from 'chalk';
-import { pathExists, remove } from 'fs-extra';
+import { pathExists } from 'fs-extra';
 import { confirm } from '@inquirer/prompts';
-import path from 'node:path';
 import { FleetProject } from '../core/fleet.js';
-import { Workspace } from '../core/workspace.js';
+import { Workspace, openWorkspace } from '../core/workspace.js';
 
 interface CleanableDirectory {
   name: string;
   path: string;
   reason: string[];
-  isWorktree: boolean;
+  workspace: Workspace;
 }
 
 export async function cleanCommand(options?: { yes?: boolean }) {
@@ -21,17 +20,18 @@ export async function cleanCommand(options?: { yes?: boolean }) {
 
     const workspaces = await fleet.getWorkspaces();
     const cleanableDirectories: CleanableDirectory[] = [];
-    const worktreePaths = await Workspace.listWorktreePaths(fleet.root);
+    const projectRootWorkspace = new Workspace(fleet.root);
+    const worktreePaths = await projectRootWorkspace.listWorktreePaths();
 
     // Check each workspace
     for (const workspaceName of workspaces) {
       const workspaceDir = fleet.buildWorkspacePath(workspaceName);
-      const cleanable = await checkDirectoryCleanable(
+      const cleanable = await checkDirectoryCleanable({
         workspaceName,
         workspaceDir,
-        fleet.root,
+        projectRootDir: fleet.root,
         worktreePaths,
-      );
+      });
 
       if (cleanable) {
         cleanableDirectories.push(cleanable);
@@ -76,11 +76,7 @@ export async function cleanCommand(options?: { yes?: boolean }) {
     let removedCount = 0;
     for (const dir of cleanableDirectories) {
       try {
-        if (dir.isWorktree) {
-          await Workspace.removeWorktree(fleet.root, dir.path);
-        } else {
-          await remove(dir.path);
-        }
+        await dir.workspace.removeFromRoot();
         removedCount++;
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error);
@@ -100,24 +96,30 @@ export async function cleanCommand(options?: { yes?: boolean }) {
   }
 }
 
-async function checkDirectoryCleanable(
-  workspaceName: string,
-  workspaceDir: string,
-  projectRootDir: string,
-  worktreePaths: Set<string>,
-): Promise<CleanableDirectory | null> {
+async function checkDirectoryCleanable(args: {
+  workspaceName: string;
+  workspaceDir: string;
+  projectRootDir: string;
+  worktreePaths: Set<string>;
+}): Promise<CleanableDirectory | null> {
+  const { workspaceName, workspaceDir, projectRootDir, worktreePaths } = args;
   if (!(await pathExists(workspaceDir))) {
     return null;
   }
+
+  const workspace = await openWorkspace({
+    projectRootDir,
+    workspaceDir,
+    name: workspaceName,
+    worktreePaths,
+  });
 
   const cleanable: CleanableDirectory = {
     name: workspaceName,
     path: workspaceDir,
     reason: [],
-    isWorktree: worktreePaths.has(path.resolve(workspaceDir)),
+    workspace,
   };
-
-  const workspace = new Workspace(workspaceDir);
 
   // Check for uncommitted changes
   if (await workspace.hasUncommittedChanges()) {

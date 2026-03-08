@@ -4,6 +4,7 @@ import { FleetProject } from '../core/fleet.js';
 import { ShellIntegration } from '../core/shell-integration.js';
 import {
   getCurrentWorkspaceName,
+  parseBackendOption,
   resolveWorkspaceDirectory,
 } from '../core/utils.js';
 
@@ -107,14 +108,4 @@ export async function switchCommand(
     console.error(chalk.red('Error:'), message);
     process.exit(1);
   }
-}
-
-function parseBackendOption(
-  backend?: string,
-): 'worktree' | 'clone' | undefined {
-  if (!backend) return undefined;
-  if (backend === 'worktree' || backend === 'clone') return backend;
-  throw new Error(
-    `Invalid backend "${backend}". Use "worktree" or "clone".`,
-  );
 }
