@@ -2,7 +2,7 @@ import chalk from 'chalk';
 import { pathExists } from 'fs-extra';
 import { confirm } from '@inquirer/prompts';
 import { FleetProject } from '../core/fleet.js';
-import { Workspace, openWorkspace } from '../core/workspace.js';
+import { Workspace } from '../core/workspace.js';
 
 interface CleanableDirectory {
   name: string;
@@ -107,7 +107,7 @@ async function checkDirectoryCleanable(args: {
     return null;
   }
 
-  const workspace = await openWorkspace({
+  const workspace = await Workspace.open({
     projectRootDir,
     workspaceDir,
     name: workspaceName,

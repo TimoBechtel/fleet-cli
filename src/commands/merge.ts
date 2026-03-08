@@ -2,7 +2,7 @@ import chalk from 'chalk';
 import { pathExists } from 'fs-extra';
 import { confirm } from '@inquirer/prompts';
 import { FleetProject } from '../core/fleet.js';
-import { Workspace, openWorkspace } from '../core/workspace.js';
+import { Workspace } from '../core/workspace.js';
 
 export async function mergeCommand(
   workspaceName: string,
@@ -32,7 +32,7 @@ export async function mergeCommand(
       process.exit(1);
     }
 
-    const workspace = await openWorkspace({
+    const workspace = await Workspace.open({
       projectRootDir: fleet.root,
       workspaceDir,
       name: resolvedName,

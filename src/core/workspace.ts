@@ -27,6 +27,23 @@ export class Workspace {
     this.kind = options?.kind;
   }
 
+  static async open(args: {
+    projectRootDir: string;
+    workspaceDir: string;
+    name: string;
+    worktreePaths?: Set<string>;
+  }): Promise<Workspace> {
+    const projectRootWorkspace = new Workspace(args.projectRootDir);
+    const isWorktree =
+      args.worktreePaths?.has(path.resolve(args.workspaceDir)) ??
+      (await projectRootWorkspace.isWorktreePath(args.workspaceDir));
+    return new Workspace(args.workspaceDir, {
+      projectRootDir: args.projectRootDir,
+      name: args.name,
+      kind: isWorktree ? 'worktree' : 'clone',
+    });
+  }
+
   async listWorktreePaths(): Promise<Set<string>> {
     try {
       const output = await this.git.raw(['worktree', 'list', '--porcelain']);
@@ -385,21 +402,4 @@ export class Workspace {
       // branch deletion might fail if it was already deleted or doesn't exist, that's ok
     }
   }
-}
-
-export async function openWorkspace(args: {
-  projectRootDir: string;
-  workspaceDir: string;
-  name: string;
-  worktreePaths?: Set<string>;
-}): Promise<Workspace> {
-  const projectRootWorkspace = new Workspace(args.projectRootDir);
-  const isWorktree =
-    args.worktreePaths?.has(path.resolve(args.workspaceDir)) ??
-    (await projectRootWorkspace.isWorktreePath(args.workspaceDir));
-  return new Workspace(args.workspaceDir, {
-    projectRootDir: args.projectRootDir,
-    name: args.name,
-    kind: isWorktree ? 'worktree' : 'clone',
-  });
 }
