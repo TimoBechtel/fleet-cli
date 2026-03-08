@@ -137,11 +137,11 @@ export class Workspace {
 
   async isDiverged(projectRootDir: string): Promise<boolean> {
     try {
-      const currentHead = await this.getGit().revparse(['HEAD']);
+      const currentHead = (await this.getGit().revparse(['HEAD'])).trim();
       const projectRootWorkspace = new Workspace(projectRootDir);
-      const projectRootHead = await projectRootWorkspace
+      const projectRootHead = (await projectRootWorkspace
         .getGit()
-        .revparse(['HEAD']);
+        .revparse(['HEAD'])).trim();
 
       if (currentHead === projectRootHead) {
         return false;
