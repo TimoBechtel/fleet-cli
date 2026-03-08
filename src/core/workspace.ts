@@ -1,88 +1,65 @@
-import { copy, ensureDir, pathExists, remove } from 'fs-extra';
+import { copy, ensureDir, pathExists } from 'fs-extra';
 import { execSync } from 'node:child_process';
+import { copyFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { simpleGit, type SimpleGit } from 'simple-git';
+import type { Backend } from './backends/backend.js';
 import type { FleetConfig } from './config.js';
 
-// TODO: i think we should inject the fleet project into the workspace, so that we don't have to pass the config around. and create workspace from fleet project?
 export class Workspace {
   private static readonly FALLBACK_DEFAULT_GIT_BRANCH = 'main';
 
-  private git: SimpleGit;
+  private git?: SimpleGit;
   private projectRootDir?: string;
   private name?: string;
-  private kind?: 'worktree' | 'clone';
+  private backend?: Backend;
+  private config?: FleetConfig;
 
   constructor(
     private workingDir: string,
     options?: {
       projectRootDir?: string;
       name?: string;
-      kind?: 'worktree' | 'clone';
+      backend?: Backend;
+      config?: FleetConfig;
     },
   ) {
-    this.git = simpleGit(workingDir);
     this.projectRootDir = options?.projectRootDir;
     this.name = options?.name;
-    this.kind = options?.kind;
+    this.backend = options?.backend;
+    this.config = options?.config;
   }
 
-  static async open(args: {
-    projectRootDir: string;
-    workspaceDir: string;
-    name: string;
-    worktreePaths?: Set<string>;
-  }): Promise<Workspace> {
-    const projectRootWorkspace = new Workspace(args.projectRootDir);
-    const isWorktree =
-      args.worktreePaths?.has(path.resolve(args.workspaceDir)) ??
-      (await projectRootWorkspace.isWorktreePath(args.workspaceDir));
-    return new Workspace(args.workspaceDir, {
-      projectRootDir: args.projectRootDir,
-      name: args.name,
-      kind: isWorktree ? 'worktree' : 'clone',
+  async create(baseBranch?: string): Promise<void> {
+    const { projectRootDir, name, backend, config } = this.getCreateContext();
+    await backend.createWorkspace({
+      projectRootDir,
+      workspaceDir: this.workingDir,
+      name,
+      config,
+      baseBranch,
+    });
+    await this.runPostInitSteps(this.workingDir, config);
+    await this.ensureWorkspaceMarker();
+  }
+
+  async mergeIntoRoot(): Promise<void> {
+    const { projectRootDir, name, backend } = this.getBackendContext();
+    await backend.mergeWorkspace({
+      projectRootDir,
+      workspaceDir: this.workingDir,
+      name,
     });
   }
 
-  async listWorktreePaths(): Promise<Set<string>> {
-    try {
-      const output = await this.git.raw(['worktree', 'list', '--porcelain']);
-      const paths = new Set<string>();
-      for (const line of output.split('\n')) {
-        if (!line.startsWith('worktree ')) continue;
-        const worktreePath = line.slice('worktree '.length).trim();
-        if (worktreePath) {
-          paths.add(path.resolve(worktreePath));
-        }
-      }
-      return paths;
-    } catch {
-      return new Set<string>();
-    }
-  }
-
-  async isWorktreePath(workspaceDir: string): Promise<boolean> {
-    const worktrees = await this.listWorktreePaths();
-    return worktrees.has(path.resolve(workspaceDir));
-  }
-
-  async removeWorktree(workspaceDir: string, force = false): Promise<void> {
-    const args = ['worktree', 'remove'];
-    if (force) args.push('--force');
-    args.push(workspaceDir);
-    await this.git.raw(args);
-  }
-
-  async deleteBranch(branchName: string, force = false): Promise<void> {
-    try {
-      await this.git.branch([force ? '-D' : '-d', branchName]);
-    } catch {
-      // ignore if branch doesn't exist or can't be deleted
-    }
-  }
-
-  async mergeBranchIntoCurrent(branchName: string): Promise<void> {
-    await this.git.raw(['merge', branchName]);
+  async removeFromRoot(options?: { force?: boolean }): Promise<void> {
+    const { projectRootDir, name, backend } = this.getBackendContext();
+    await backend.removeWorkspace({
+      projectRootDir,
+      workspaceDir: this.workingDir,
+      name,
+      force: options?.force,
+    });
   }
 
   async isGitRoot(): Promise<boolean> {
@@ -96,7 +73,7 @@ export class Workspace {
 
   async hasUncommittedChanges(): Promise<boolean> {
     try {
-      const status = await this.git.status();
+      const status = await this.getGit().status();
       return status.files.length > 0;
     } catch {
       return false;
@@ -106,8 +83,8 @@ export class Workspace {
   async getTrackedDirtyFiles(): Promise<string[]> {
     try {
       const [unstaged, staged] = await Promise.all([
-        this.git.diff(['--name-only']),
-        this.git.diff(['--cached', '--name-only']),
+        this.getGit().diff(['--name-only']),
+        this.getGit().diff(['--cached', '--name-only']),
       ]);
       const trackedDirtyFiles = new Set<string>();
       for (const line of [...unstaged.split('\n'), ...staged.split('\n')]) {
@@ -143,40 +120,34 @@ export class Workspace {
 
   async getMainBranch(): Promise<string> {
     try {
-      // Try to get the default branch from remote HEAD
-      const result = await this.git.raw([
+      const result = await this.getGit().raw([
         'symbolic-ref',
         'refs/remotes/origin/HEAD',
       ]);
       return result.trim().replace('refs/remotes/origin/', '');
     } catch {
       try {
-        // Fallback: get current branch
-        const current = await this.git.branch();
+        const current = await this.getGit().branch();
         return current.current || Workspace.FALLBACK_DEFAULT_GIT_BRANCH;
       } catch {
-        // Final fallback
         return Workspace.FALLBACK_DEFAULT_GIT_BRANCH;
       }
     }
   }
 
-  /**
-   * Checks if this workspace has diverged from the project root
-   * Returns true if there are commits in this workspace that are not in the project root
-   */
   async isDiverged(projectRootDir: string): Promise<boolean> {
     try {
-      const currentHead = await this.git.revparse(['HEAD']);
+      const currentHead = await this.getGit().revparse(['HEAD']);
       const projectRootWorkspace = new Workspace(projectRootDir);
-      const projectRootHead = await projectRootWorkspace.git.revparse(['HEAD']);
+      const projectRootHead = await projectRootWorkspace
+        .getGit()
+        .revparse(['HEAD']);
 
-      // if heads are the same, no divergence
       if (currentHead === projectRootHead) {
         return false;
       }
 
-      const revList = await projectRootWorkspace.git.raw([
+      const revList = await projectRootWorkspace.getGit().raw([
         'rev-list',
         '--left-right',
         '--count',
@@ -186,99 +157,89 @@ export class Workspace {
       const rightCount = Number(rightCountRaw ?? 0);
       return rightCount > 0;
     } catch {
-      return true; // assume diverged if we can't determine
+      return true;
     }
   }
 
-  async mergeIntoRoot(): Promise<void> {
-    const { projectRootDir, name, kind } = this.getRootContext();
-    const projectRootWorkspace = new Workspace(projectRootDir);
-
-    if (kind === 'worktree') {
-      try {
-        await projectRootWorkspace.mergeBranchIntoCurrent(name);
-      } catch {
-        const relativePath = path.relative(process.cwd(), projectRootDir);
-        throw new Error(
-          `\nMerge conflicts detected. \nPlease resolve them manually in "${relativePath}" and complete the merge.`,
-        );
-      }
-      await projectRootWorkspace.removeWorktree(this.workingDir);
-      await projectRootWorkspace.deleteBranch(name);
-      return;
-    }
-
-    await projectRootWorkspace.mergeWorkspace(name, this.workingDir);
-    await remove(this.workingDir);
+  async getCurrentBranch(): Promise<string | null> {
+    return (await this.getGit().branch()).current || null;
   }
 
-  async removeFromRoot(options?: { force?: boolean }): Promise<void> {
-    const { projectRootDir, name, kind } = this.getRootContext();
-    const projectRootWorkspace = new Workspace(projectRootDir);
-
-    if (kind === 'worktree') {
-      await projectRootWorkspace.removeWorktree(
-        this.workingDir,
-        options?.force,
-      );
-      await projectRootWorkspace.deleteBranch(name, options?.force);
-      return;
-    }
-
-    await remove(this.workingDir);
+  async commitChanges(message: string): Promise<void> {
+    await this.getGit().add('--all');
+    await this.getGit().commit(message);
   }
 
-  private getRootContext(): {
+  async initRepository(): Promise<void> {
+    await this.getGit().init();
+    await this.getGit().add('--all');
+    await this.getGit().raw(['commit', '--allow-empty', '-m', 'Initial commit']);
+  }
+
+  private getGit(): SimpleGit {
+    if (!this.git) {
+      this.git = simpleGit(this.workingDir);
+    }
+    return this.git;
+  }
+
+  private getBackendContext(): {
     projectRootDir: string;
     name: string;
-    kind: 'worktree' | 'clone';
+    backend: Backend;
   } {
-    if (!this.projectRootDir || !this.name || !this.kind) {
+    if (!this.projectRootDir || !this.name || !this.backend) {
       throw new Error('Workspace is missing project root context');
     }
     return {
       projectRootDir: this.projectRootDir,
       name: this.name,
-      kind: this.kind,
+      backend: this.backend,
     };
   }
 
-  /**
-   * Clones the workspace to the target directory
-   *
-   * @param targetDir Target directory for the clone
-   * @param config Fleet configuration
-   * @param branch Optional branch to clone from (defaults to current HEAD)
-   * @returns The workspace
-   */
-  async clone(
-    targetDir: string,
-    config?: FleetConfig,
-    branch?: string,
-  ): Promise<Workspace> {
-    await ensureDir(path.dirname(targetDir));
-
-    await (branch
-      ? this.git.clone(this.workingDir, targetDir, ['--branch', branch])
-      : this.git.clone(this.workingDir, targetDir));
-
-    if (config) {
-      await this.runPostInitSteps(targetDir, config);
+  private getCreateContext(): {
+    projectRootDir: string;
+    name: string;
+    backend: Backend;
+    config: FleetConfig;
+  } {
+    const { projectRootDir, name, backend } = this.getBackendContext();
+    if (!this.config) {
+      throw new Error('Workspace is missing config');
     }
-
-    return new Workspace(targetDir);
+    return { projectRootDir, name, backend, config: this.config };
   }
 
-  async runPostInitSteps(
+  private async ensureWorkspaceMarker(): Promise<void> {
+    if (!this.projectRootDir) {
+      throw new Error('Workspace is missing project root context');
+    }
+    await ensureDir(path.join(this.workingDir, '.fleet'));
+    await writeFile(path.join(this.workingDir, '.fleet', '.workspace'), '');
+    const rootGitignore = path.join(this.projectRootDir, '.fleet', '.gitignore');
+    const workspaceGitignore = path.join(
+      this.workingDir,
+      '.fleet',
+      '.gitignore',
+    );
+    if (
+      (await pathExists(rootGitignore)) &&
+      !(await pathExists(workspaceGitignore))
+    ) {
+      await copyFile(rootGitignore, workspaceGitignore);
+    }
+  }
+
+  private async runPostInitSteps(
     targetDir: string,
     config: FleetConfig,
   ): Promise<void> {
-    // Copy extra files first (before running post-init command)
     if (config.extraFiles.length) {
-      await this.copyExtraFiles(this.workingDir, targetDir, config.extraFiles);
+      const sourceDir = this.projectRootDir ?? this.workingDir;
+      await this.copyExtraFiles(sourceDir, targetDir, config.extraFiles);
     }
 
-    // Run post-init command
     if (config.postInitCommand) {
       await this.runPostInitCommand(targetDir, config.postInitCommand);
     }
@@ -318,88 +279,6 @@ export class Workspace {
       console.warn(
         `Post-init command failed: ${error instanceof Error ? error.message : String(error)}`,
       );
-    }
-  }
-
-  async addWorktree(
-    targetDir: string,
-    branchName: string,
-    baseBranch?: string,
-  ): Promise<void> {
-    await ensureDir(path.dirname(targetDir));
-    const args = ['worktree', 'add', '-b', branchName, targetDir];
-    if (baseBranch) args.push(baseBranch);
-    await this.git.raw(args);
-  }
-
-  // TODO: add increment option to create branch with incrementing number if branch already exists (e.g. task-2-1)
-  async createBranch(branchName: string): Promise<void> {
-    await this.git.checkoutLocalBranch(branchName);
-  }
-
-  async getCurrentBranch(): Promise<string | null> {
-    return (await this.git.branch()).current || null;
-  }
-
-  async commitChanges(message: string): Promise<void> {
-    await this.git.add('--all');
-    await this.git.commit(message);
-  }
-
-  async initRepository(): Promise<void> {
-    await this.git.init();
-    await this.git.add('--all');
-    await this.git.raw(['commit', '--allow-empty', '-m', 'Initial commit']);
-  }
-
-  /**
-   * Merges a workspace directory into this workspace and removes the source workspace
-   *
-   * @param workspaceName Name of the workspace/branch being merged
-   * @param workspaceDir Path to the workspace directory to merge from
-   * @returns Promise that resolves when merge is complete
-   */
-  async mergeWorkspace(
-    workspaceName: string,
-    workspaceDir: string,
-  ): Promise<void> {
-    // we're merging into the current branch. user has to do a git checkout first, if they want to merge into a different branch
-
-    // add the workspace directory as a temporary remote
-    const tempRemoteName = `temp-${workspaceName}`;
-    await this.git.addRemote(tempRemoteName, workspaceDir);
-
-    try {
-      // for some reason, this.git.fetch(tempRemoteName) doesn't work, so we're using raw git command instead
-      await this.git.raw([
-        'fetch',
-        tempRemoteName,
-        `${workspaceName}:refs/remotes/${tempRemoteName}/${workspaceName}`,
-      ]);
-
-      const mergeResult = await this.git.merge([
-        `${tempRemoteName}/${workspaceName}`,
-        '-m',
-        `Merge branch '${workspaceName}'`, // use standard merge message (without remote-tracking branch name)
-      ]);
-      if (mergeResult.conflicts.length > 0) {
-        const relativePath = path.relative(process.cwd(), this.workingDir);
-        throw new Error(
-          `\nMerge conflicts detected. \nPlease resolve them manually in "${relativePath}" and complete the merge.`,
-        );
-      }
-    } finally {
-      try {
-        await this.git.removeRemote(tempRemoteName);
-      } catch {
-        // ignore if remote doesn't exist
-      }
-    }
-
-    try {
-      await this.git.branch(['-d', workspaceName]);
-    } catch {
-      // branch deletion might fail if it was already deleted or doesn't exist, that's ok
     }
   }
 }

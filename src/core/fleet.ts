@@ -1,12 +1,13 @@
 import chalk from 'chalk';
 import { ensureDir, pathExists } from 'fs-extra';
-import { copyFile, readdir, writeFile } from 'node:fs/promises';
+import { readdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import {
   ConfigManager,
   type FleetConfig,
   type FleetConfigInput,
 } from './config.js';
+import { Backend } from './backends/backend.js';
 import { Workspace } from './workspace.js';
 
 const PROJECT_CONFIG_DEFAULTS: FleetConfigInput = {};
@@ -89,10 +90,7 @@ export class FleetProject {
           '',
         ]
       : ['/workspaces/', '.workspace', ''];
-    await writeFile(
-      path.join(fleetDir, '.gitignore'),
-      `${gitignoreLines.join('\n')}`,
-    );
+    await writeFile(path.join(fleetDir, '.gitignore'), gitignoreLines.join('\n'));
 
     const config = await ConfigManager.loadConfig(root);
     return new FleetProject(root, config);
@@ -140,34 +138,17 @@ export class FleetProject {
       );
     }
 
-    const backend = backendOverride ?? this.config.backend ?? 'worktree';
+    const backend = backendOverride ?? this.config.backend;
+    const backendImpl = Backend.create(backend);
 
-    let workspace: Workspace;
-    if (backend === 'worktree') {
-      await projectRootWorkspace.addWorktree(workspaceDir, name, baseBranch);
-      workspace = new Workspace(workspaceDir);
-      await projectRootWorkspace.runPostInitSteps(workspaceDir, this.config);
-    } else {
-      workspace = await projectRootWorkspace.clone(
-        workspaceDir,
-        this.config,
-        baseBranch,
-      );
-      await workspace.createBranch(name);
-    }
+    const workspace = new Workspace(workspaceDir, {
+      projectRootDir: this.root,
+      name,
+      backend: backendImpl,
+      config: this.config,
+    });
 
-    // create .fleet/.workspace file to mark as workspace
-    await ensureDir(path.join(workspaceDir, '.fleet'));
-    await writeFile(path.join(workspaceDir, '.fleet', '.workspace'), '');
-    const rootGitignore = path.join(this.root, '.fleet', '.gitignore');
-    const workspaceGitignore = path.join(workspaceDir, '.fleet', '.gitignore');
-    if (
-      (await pathExists(rootGitignore)) &&
-      !(await pathExists(workspaceGitignore))
-    ) {
-      // Prevent untracked .fleet/.workspace in the workspace repo.
-      await copyFile(rootGitignore, workspaceGitignore);
-    }
+    await workspace.create(baseBranch);
 
     return workspace;
   }

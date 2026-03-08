@@ -1,6 +1,7 @@
 import chalk from 'chalk';
 import { pathExists } from 'fs-extra';
 import { confirm } from '@inquirer/prompts';
+import { Backend } from '../core/backends/backend.js';
 import { FleetProject } from '../core/fleet.js';
 import { Workspace } from '../core/workspace.js';
 
@@ -20,8 +21,6 @@ export async function cleanCommand(options?: { yes?: boolean }) {
 
     const workspaces = await fleet.getWorkspaces();
     const cleanableDirectories: CleanableDirectory[] = [];
-    const projectRootWorkspace = new Workspace(fleet.root);
-    const worktreePaths = await projectRootWorkspace.listWorktreePaths();
 
     // Check each workspace
     for (const workspaceName of workspaces) {
@@ -30,7 +29,6 @@ export async function cleanCommand(options?: { yes?: boolean }) {
         workspaceName,
         workspaceDir,
         projectRootDir: fleet.root,
-        worktreePaths,
       });
 
       if (cleanable) {
@@ -100,18 +98,20 @@ async function checkDirectoryCleanable(args: {
   workspaceName: string;
   workspaceDir: string;
   projectRootDir: string;
-  worktreePaths: Set<string>;
 }): Promise<CleanableDirectory | null> {
-  const { workspaceName, workspaceDir, projectRootDir, worktreePaths } = args;
+  const { workspaceName, workspaceDir, projectRootDir } = args;
   if (!(await pathExists(workspaceDir))) {
     return null;
   }
 
-  const workspace = await Workspace.open({
+  const backend = await Backend.detect({
     projectRootDir,
     workspaceDir,
+  });
+  const workspace = new Workspace(workspaceDir, {
+    projectRootDir,
     name: workspaceName,
-    worktreePaths,
+    backend,
   });
 
   const cleanable: CleanableDirectory = {

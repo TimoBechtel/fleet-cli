@@ -1,6 +1,7 @@
 import chalk from 'chalk';
 import { pathExists } from 'fs-extra';
 import { confirm } from '@inquirer/prompts';
+import { Backend } from '../core/backends/backend.js';
 import { FleetProject } from '../core/fleet.js';
 import { Workspace } from '../core/workspace.js';
 
@@ -32,10 +33,14 @@ export async function mergeCommand(
       process.exit(1);
     }
 
-    const workspace = await Workspace.open({
+    const backend = await Backend.detect({
       projectRootDir: fleet.root,
       workspaceDir,
+    });
+    const workspace = new Workspace(workspaceDir, {
+      projectRootDir: fleet.root,
       name: resolvedName,
+      backend,
     });
 
     if (await workspace.hasUncommittedChanges()) {
