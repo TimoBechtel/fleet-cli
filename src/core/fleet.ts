@@ -11,7 +11,6 @@ import { Backend } from './backends/backend.js';
 import { GitRepo } from './git-repo.js';
 import { Workspace } from './workspace.js';
 
-// Defaults for newly initialized Fleet projects.
 const PROJECT_CONFIG_DEFAULTS: FleetConfigInput = {};
 
 export class FleetProject {
@@ -44,7 +43,6 @@ export class FleetProject {
     );
   }
 
-  // Walk up from a directory to find the nearest Fleet project root.
   static async findFleetProject(
     startDir: string = process.cwd(),
   ): Promise<FleetProject | null> {
@@ -93,7 +91,10 @@ export class FleetProject {
           '',
         ]
       : ['/workspaces/', '.workspace', ''];
-    await writeFile(path.join(fleetDir, '.gitignore'), gitignoreLines.join('\n'));
+    await writeFile(
+      path.join(fleetDir, '.gitignore'),
+      gitignoreLines.join('\n'),
+    );
 
     const config = await ConfigManager.loadConfig(root);
     return new FleetProject(root, config);
@@ -142,7 +143,7 @@ export class FleetProject {
     }
 
     const backend = backendOverride ?? this.config.backend;
-    const backendImpl = Backend.create(backend);
+    const backendImpl = Backend.pick(backend);
 
     const workspace = new Workspace({
       projectRootDir: this.root,
@@ -152,7 +153,7 @@ export class FleetProject {
       config: this.config,
     });
 
-    await workspace.create(baseBranch);
+    await workspace.provision(baseBranch);
 
     return workspace;
   }

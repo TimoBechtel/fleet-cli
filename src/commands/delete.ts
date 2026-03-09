@@ -42,6 +42,7 @@ export async function deleteCommand(
       workspaceDir,
       name: resolvedName,
       backend,
+      config: fleet.config,
     });
     const repo = new GitRepo(workspaceDir);
 

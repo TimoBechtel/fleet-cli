@@ -3,6 +3,7 @@ import { pathExists } from 'fs-extra';
 import { confirm } from '@inquirer/prompts';
 import { Backend } from '../core/backends/backend.js';
 import { FleetProject } from '../core/fleet.js';
+import type { FleetConfig } from '../core/config.js';
 import { GitRepo } from '../core/git-repo.js';
 import { Workspace } from '../core/workspace.js';
 
@@ -30,6 +31,7 @@ export async function cleanCommand(options?: { yes?: boolean }) {
         workspaceName,
         workspaceDir,
         projectRootDir: fleet.root,
+        config: fleet.config,
       });
 
       if (cleanable) {
@@ -99,8 +101,9 @@ async function checkDirectoryCleanable(args: {
   workspaceName: string;
   workspaceDir: string;
   projectRootDir: string;
+  config: FleetConfig;
 }): Promise<CleanableDirectory | null> {
-  const { workspaceName, workspaceDir, projectRootDir } = args;
+  const { workspaceName, workspaceDir, projectRootDir, config } = args;
   if (!(await pathExists(workspaceDir))) {
     return null;
   }
@@ -114,6 +117,7 @@ async function checkDirectoryCleanable(args: {
     workspaceDir,
     name: workspaceName,
     backend,
+    config,
   });
   const repo = new GitRepo(workspaceDir);
 

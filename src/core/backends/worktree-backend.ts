@@ -5,15 +5,18 @@ import type { FleetConfig } from '../config.js';
 import type { Backend } from './backend.js';
 
 export class WorktreeBackend implements Backend {
-  private static worktreePathsCache = new Map<string, Promise<Set<string>>>();
-  async createWorkspace(args: {
+  async createWorkspace({
+    projectRootDir,
+    workspaceDir,
+    name,
+    baseBranch,
+  }: {
     projectRootDir: string;
     workspaceDir: string;
     name: string;
     config: FleetConfig;
     baseBranch?: string;
   }): Promise<void> {
-    const { projectRootDir, workspaceDir, name, baseBranch } = args;
     await ensureDir(path.dirname(workspaceDir));
     const git = simpleGit(projectRootDir);
     const gitArgs = ['worktree', 'add', '-b', name, workspaceDir];
@@ -21,12 +24,15 @@ export class WorktreeBackend implements Backend {
     await git.raw(gitArgs);
   }
 
-  async mergeWorkspace(args: {
+  async mergeWorkspace({
+    projectRootDir,
+    workspaceDir,
+    name,
+  }: {
     projectRootDir: string;
     workspaceDir: string;
     name: string;
   }): Promise<void> {
-    const { projectRootDir, workspaceDir, name } = args;
     const git = simpleGit(projectRootDir);
 
     try {
@@ -42,13 +48,17 @@ export class WorktreeBackend implements Backend {
     await this.deleteBranch(git, name);
   }
 
-  async removeWorkspace(args: {
+  async removeWorkspace({
+    projectRootDir,
+    workspaceDir,
+    name,
+    force,
+  }: {
     projectRootDir: string;
     workspaceDir: string;
     name: string;
     force?: boolean;
   }): Promise<void> {
-    const { projectRootDir, workspaceDir, name, force } = args;
     const git = simpleGit(projectRootDir);
     const gitArgs = ['worktree', 'remove'];
     if (force) gitArgs.push('--force');
@@ -57,12 +67,14 @@ export class WorktreeBackend implements Backend {
     await this.deleteBranch(git, name, force);
   }
 
-  async matchesWorkspaceDir(args: {
+  async matchesWorkspaceDir({
+    projectRootDir,
+    workspaceDir,
+  }: {
     projectRootDir: string;
     workspaceDir: string;
   }): Promise<boolean> {
-    const { projectRootDir, workspaceDir } = args;
-    const worktreePaths = await this.getWorktreePaths(projectRootDir);
+    const worktreePaths = await this.loadWorktreePaths(projectRootDir);
     return worktreePaths.has(path.resolve(workspaceDir));
   }
 
@@ -76,15 +88,6 @@ export class WorktreeBackend implements Backend {
     } catch {
       // ignore if branch doesn't exist or can't be deleted
     }
-  }
-
-  private async getWorktreePaths(projectRootDir: string): Promise<Set<string>> {
-    const existing = WorktreeBackend.worktreePathsCache.get(projectRootDir);
-    if (existing) return existing;
-
-    const load = this.loadWorktreePaths(projectRootDir);
-    WorktreeBackend.worktreePathsCache.set(projectRootDir, load);
-    return load;
   }
 
   private async loadWorktreePaths(

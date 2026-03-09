@@ -11,8 +11,6 @@ import { GitRepo } from './git-repo.js';
  * Fleet Workspace (user-facing concept).
  *
  * A workspace is a named checkout living at `.fleet/workspaces/<name>`.
- *
- * Backend-specific behavior (clone vs worktree) is delegated to `backend`.
  */
 export class Workspace {
   constructor(
@@ -21,15 +19,11 @@ export class Workspace {
       workspaceDir: string;
       name: string;
       backend: Backend;
-      config?: FleetConfig;
+      config: FleetConfig;
     },
   ) {}
 
-  async create(baseBranch?: string): Promise<void> {
-    if (!this.ctx.config) {
-      throw new Error('Workspace.create() requires config');
-    }
-
+  async provision(baseBranch?: string): Promise<void> {
     await this.ctx.backend.createWorkspace({
       projectRootDir: this.ctx.projectRootDir,
       workspaceDir: this.ctx.workspaceDir,
@@ -64,33 +58,44 @@ export class Workspace {
 
   private async ensureWorkspaceMarker(): Promise<void> {
     await ensureDir(path.join(this.ctx.workspaceDir, '.fleet'));
-    await writeFile(path.join(this.ctx.workspaceDir, '.fleet', '.workspace'), '');
+    await writeFile(
+      path.join(this.ctx.workspaceDir, '.fleet', '.workspace'),
+      '',
+    );
 
     // Copy root .fleet/.gitignore into the workspace metadata folder (stealth mode support).
-    const rootGitignore = path.join(this.ctx.projectRootDir, '.fleet', '.gitignore');
-    const workspaceGitignore = path.join(this.ctx.workspaceDir, '.fleet', '.gitignore');
+    const rootGitignore = path.join(
+      this.ctx.projectRootDir,
+      '.fleet',
+      '.gitignore',
+    );
+    const workspaceGitignore = path.join(
+      this.ctx.workspaceDir,
+      '.fleet',
+      '.gitignore',
+    );
 
-    if ((await pathExists(rootGitignore)) && !(await pathExists(workspaceGitignore))) {
+    if (
+      (await pathExists(rootGitignore)) &&
+      !(await pathExists(workspaceGitignore))
+    ) {
       await copyFile(rootGitignore, workspaceGitignore);
     }
   }
 
   private async runPostInitSteps(): Promise<void> {
-    const config = this.ctx.config;
-    if (!config) return;
-
-    if (config.extraFiles.length) {
+    if (this.ctx.config.extraFiles.length) {
       const rootRepo = new GitRepo(this.ctx.projectRootDir);
       await rootRepo.copyExtraFiles({
         sourceDir: this.ctx.projectRootDir,
         targetDir: this.ctx.workspaceDir,
-        patterns: config.extraFiles,
+        patterns: this.ctx.config.extraFiles,
       });
     }
 
-    if (config.postInitCommand) {
+    if (this.ctx.config.postInitCommand) {
       const wsRepo = new GitRepo(this.ctx.workspaceDir);
-      await wsRepo.runPostInitCommand(config.postInitCommand);
+      await wsRepo.runPostInitCommand(this.ctx.config.postInitCommand);
     }
   }
 }

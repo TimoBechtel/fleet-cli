@@ -5,14 +5,18 @@ import type { FleetConfig } from '../config.js';
 import type { Backend } from './backend.js';
 
 export class CloneBackend implements Backend {
-  async createWorkspace(args: {
+  async createWorkspace({
+    projectRootDir,
+    workspaceDir,
+    name,
+    baseBranch,
+  }: {
     projectRootDir: string;
     workspaceDir: string;
     name: string;
     config: FleetConfig;
     baseBranch?: string;
   }): Promise<void> {
-    const { projectRootDir, workspaceDir, name, baseBranch } = args;
     await ensureDir(path.dirname(workspaceDir));
 
     const git = simpleGit(projectRootDir);
@@ -23,12 +27,15 @@ export class CloneBackend implements Backend {
     await workspaceGit.checkoutLocalBranch(name);
   }
 
-  async mergeWorkspace(args: {
+  async mergeWorkspace({
+    projectRootDir,
+    workspaceDir,
+    name,
+  }: {
     projectRootDir: string;
     workspaceDir: string;
     name: string;
   }): Promise<void> {
-    const { projectRootDir, workspaceDir, name } = args;
     const git = simpleGit(projectRootDir);
 
     const tempRemoteName = `temp-${name}`;
@@ -69,16 +76,19 @@ export class CloneBackend implements Backend {
     await remove(workspaceDir);
   }
 
-  async removeWorkspace(args: {
-    workspaceDir: string;
-  }): Promise<void> {
-    await remove(args.workspaceDir);
-  }
-
-  async matchesWorkspaceDir(_args: {
+  async removeWorkspace({
+    workspaceDir,
+  }: {
     projectRootDir: string;
     workspaceDir: string;
-  }): Promise<boolean> {
-    return false;
+    name: string;
+    force?: boolean;
+  }): Promise<void> {
+    await remove(workspaceDir);
+  }
+
+  async matchesWorkspaceDir(): Promise<boolean> {
+    // Clone backend is the fallback when a workspace dir is not registered as a worktree.
+    return true;
   }
 }

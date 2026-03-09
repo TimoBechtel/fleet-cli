@@ -262,7 +262,8 @@ function getTopLevelCommands(
   const entries: CompletionLine[] = [];
   const seen = new Set<string>();
 
-  for (const command of program.commands) {
+  // Commander v14: program.commands is CommandUnknownOpts[], cast to Command[] for iteration
+  for (const command of program.commands as unknown as Command[]) {
     if (isHiddenCommand(command)) continue;
 
     const description = command.description() || '';
@@ -297,10 +298,22 @@ function getCommandOptions(
 
     const description = option.description || '';
     if (option.short) {
-      addCompletion(entries, seen, option.short, description, includeDescriptions);
+      addCompletion(
+        entries,
+        seen,
+        option.short,
+        description,
+        includeDescriptions,
+      );
     }
     if (option.long) {
-      addCompletion(entries, seen, option.long, description, includeDescriptions);
+      addCompletion(
+        entries,
+        seen,
+        option.long,
+        description,
+        includeDescriptions,
+      );
     }
   }
 
@@ -308,7 +321,7 @@ function getCommandOptions(
 }
 
 function findCommand(program: Command, commandName: string): Command | null {
-  for (const command of program.commands) {
+  for (const command of program.commands as unknown as Command[]) {
     if (command.name() === commandName) return command;
     if (command.aliases().includes(commandName)) return command;
   }
@@ -316,10 +329,10 @@ function findCommand(program: Command, commandName: string): Command | null {
 }
 
 function isHiddenCommand(command: Command): boolean {
-  const hiddenFlag =
-    typeof (command as Command & { hidden?: boolean }).isHidden === 'function'
-      ? command.isHidden()
-      : Boolean((command as Command & { hidden?: boolean }).hidden);
+  // Commander v14: use .hidden property, not .isHidden() method
+  const hiddenFlag = Boolean(
+    (command as Command & { hidden?: boolean }).hidden,
+  );
 
   if (hiddenFlag) return true;
   return !shouldIncludeCommandName(command.name());
@@ -342,7 +355,9 @@ function addCompletion(
     ? sanitizeDescription(description)
     : undefined;
   entries.push(
-    includeDescriptions ? { token, description: sanitizedDescription } : { token },
+    includeDescriptions
+      ? { token, description: sanitizedDescription }
+      : { token },
   );
 }
 
@@ -358,5 +373,5 @@ function printCompletionLines(entries: CompletionLine[]) {
 
 function sanitizeDescription(description: string): string {
   const firstLine = description.split('\n')[0] ?? '';
-  return firstLine.replace(/\t/g, ' ');
+  return firstLine.replaceAll('\t', ' ');
 }

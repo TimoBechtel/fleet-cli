@@ -40,11 +40,11 @@ async function detect(args: {
   return new CloneBackend();
 }
 
-function create(kind: FleetConfig['backend']): Backend {
+function pick(kind: FleetConfig['backend']): Backend {
   return kind === 'worktree' ? new WorktreeBackend() : new CloneBackend();
 }
 
 export const Backend = {
   detect,
-  create,
+  pick,
 };
