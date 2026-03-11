@@ -1,4 +1,5 @@
 import { ensureDir } from 'fs-extra';
+import { realpath } from 'node:fs/promises';
 import path from 'node:path';
 import { simpleGit } from 'simple-git';
 import type { FleetConfig } from '../config.js';
@@ -75,7 +76,7 @@ export class WorktreeBackend implements Backend {
     workspaceDir: string;
   }): Promise<boolean> {
     const worktreePaths = await this.loadWorktreePaths(projectRootDir);
-    return worktreePaths.has(path.resolve(workspaceDir));
+    return worktreePaths.has(await this.normalizePath(workspaceDir));
   }
 
   private async deleteBranch(
@@ -100,13 +101,20 @@ export class WorktreeBackend implements Backend {
       for (const line of output.split('\n')) {
         if (!line.startsWith('worktree ')) continue;
         const worktreePath = line.slice('worktree '.length).trim();
-        if (worktreePath) {
-          paths.add(path.resolve(worktreePath));
-        }
+        if (!worktreePath) continue;
+        paths.add(await this.normalizePath(worktreePath));
       }
       return paths;
     } catch {
       return new Set<string>();
+    }
+  }
+
+  private async normalizePath(input: string): Promise<string> {
+    try {
+      return await realpath(input);
+    } catch {
+      return path.resolve(input);
     }
   }
 }
