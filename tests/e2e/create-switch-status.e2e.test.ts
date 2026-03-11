@@ -1,11 +1,14 @@
 import { expect, test } from 'bun:test';
-import { access, mkdir, readFile, realpath, rm, writeFile } from 'node:fs/promises';
-import path from 'node:path';
 import {
-  commitAll,
-  runFleet,
-  runGit,
-} from '../helpers/cli';
+  access,
+  mkdir,
+  readFile,
+  realpath,
+  rm,
+  writeFile,
+} from 'node:fs/promises';
+import path from 'node:path';
+import { commitAll, runFleet, runGit } from '../helpers/cli';
 import { TempDir } from '../helpers/temp-dir';
 
 test('create makes workspace and list shows it', async () => {
@@ -24,8 +27,9 @@ test('create makes workspace and list shows it', async () => {
   const worktreeList = await runGit(['worktree', 'list', '--porcelain'], {
     cwd: dir.path,
   });
+  const taskOneDir = path.join(dir.path, '.fleet/workspaces/task-one');
   expect(worktreeList.stdout).toContain(
-    `worktree ${path.join(dir.path, '.fleet/workspaces/task-one')}`,
+    `worktree ${await realpath(taskOneDir)}`,
   );
 
   const list = await runFleet(['list'], { cwd: dir.path });
@@ -55,8 +59,9 @@ test('create uses clone backend when configured', async () => {
   const worktreeList = await runGit(['worktree', 'list', '--porcelain'], {
     cwd: dir.path,
   });
+  const legacyCloneDir = path.join(dir.path, '.fleet/workspaces/legacy-clone');
   expect(worktreeList.stdout).not.toContain(
-    `worktree ${path.join(dir.path, '.fleet/workspaces/legacy-clone')}`,
+    `worktree ${await realpath(legacyCloneDir)}`,
   );
 });
 
@@ -85,8 +90,12 @@ test('create works when project .fleet dir is not tracked in git', async () => {
   const worktreeList = await runGit(['worktree', 'list', '--porcelain'], {
     cwd: dir.path,
   });
+  const untrackedFleetDir = path.join(
+    dir.path,
+    '.fleet/workspaces/untracked-fleet',
+  );
   expect(worktreeList.stdout).toContain(
-    `worktree ${path.join(dir.path, '.fleet/workspaces/untracked-fleet')}`,
+    `worktree ${await realpath(untrackedFleetDir)}`,
   );
 });
 
@@ -290,7 +299,8 @@ test('create with --base clones from specified branch instead of current', async
   await runGit(['checkout', '-b', 'feature-branch'], { cwd: dir.path });
   await writeFile(
     path.join(dir.path, 'file-on-feature.txt'),
-    'feature\n', 'utf8',
+    'feature\n',
+    'utf8',
   );
   await commitAll(dir.path, 'add file on feature');
 
@@ -306,7 +316,9 @@ test('create with --base clones from specified branch instead of current', async
   const worktreeList = await runGit(['worktree', 'list', '--porcelain'], {
     cwd: dir.path,
   });
-  expect(worktreeList.stdout).toContain(`worktree ${workspaceDir}`);
+  expect(worktreeList.stdout).toContain(
+    `worktree ${await realpath(workspaceDir)}`,
+  );
 
   const log = await runGit(['log', '--format=%s'], { cwd: workspaceDir });
   const commits = log.stdout.trim().split('\n');
