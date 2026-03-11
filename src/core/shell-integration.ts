@@ -6,6 +6,7 @@ import { appendFile, readFile, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { ConfigManager } from './config';
+import { promptOrExit } from './inquirer.js';
 
 export class ShellIntegration {
   static detectShell(): string | null {
@@ -101,10 +102,12 @@ export class ShellIntegration {
       'To be able to change directories, you need to set up the shell integration.',
     );
 
-    const shouldSetup = await confirm({
-      message: `Add shell integration to ${configFile}?`,
-      default: true,
-    });
+    const shouldSetup = await promptOrExit(
+      confirm({
+        message: `Add shell integration to ${configFile}?`,
+        default: true,
+      }),
+    );
 
     console.log();
 

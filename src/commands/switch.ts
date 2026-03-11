@@ -1,6 +1,7 @@
 import { select } from '@inquirer/prompts';
 import chalk from 'chalk';
 import { FleetProject } from '../core/fleet.js';
+import { promptOrExit } from '../core/inquirer.js';
 import { ShellIntegration } from '../core/shell-integration.js';
 import {
   getCurrentWorkspaceName,
@@ -46,14 +47,18 @@ export async function switchCommand(
       );
       console.log();
 
-      const selectedWorkspace = await select({
-        message: 'Select a workspace:',
-        choices: choices.map((workspace) => ({
-          name:
-            workspace === rootWorkspaceValue ? `- project root -` : workspace,
-          value: workspace,
-        })),
-      });
+      const selectedWorkspace = await promptOrExit(
+        select({
+          message: 'Select a workspace:',
+          choices: choices.map((workspace) => ({
+            name:
+              workspace === rootWorkspaceValue
+                ? `- project root -`
+                : workspace,
+            value: workspace,
+          })),
+        }),
+      );
 
       workspaceName = selectedWorkspace;
     }

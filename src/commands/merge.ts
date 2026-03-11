@@ -2,6 +2,7 @@ import chalk from 'chalk';
 import { pathExists, remove } from 'fs-extra';
 import { confirm } from '@inquirer/prompts';
 import { FleetProject } from '../core/fleet.js';
+import { promptOrExit } from '../core/inquirer.js';
 import { Workspace } from '../core/workspace.js';
 
 export async function mergeCommand(
@@ -47,12 +48,14 @@ export async function mergeCommand(
     const currentBranch = await projectRootWorkspace.getCurrentBranch();
 
     if (!options?.yes) {
-      const confirmed = await confirm({
-        message: `Merge workspace "${resolvedName}" into the project root ${
-          currentBranch ? `(branch: ${currentBranch})` : ''
-        }?`,
-        default: false,
-      });
+      const confirmed = await promptOrExit(
+        confirm({
+          message: `Merge workspace "${resolvedName}" into the project root ${
+            currentBranch ? `(branch: ${currentBranch})` : ''
+          }?`,
+          default: false,
+        }),
+      );
 
       if (!confirmed) {
         console.log(chalk.yellow('Cancelled'));
