@@ -16,7 +16,10 @@ export async function createCommand(
   try {
     const fleet = await FleetProject.ensureFleetProject();
 
-    await fleet.createWorkspace(workspaceName, options.base, options.backend);
+    await fleet.createWorkspace(workspaceName, {
+      baseBranch: options.base,
+      backend: options.backend,
+    });
 
     console.log(chalk.green(`Done: workspace "${workspaceName}" created`));
 

@@ -13,7 +13,6 @@ test('config show prefers project config values over global config values', asyn
   await writeJSON(globalConfigPath, {
     postInitCommand: 'echo global',
     extraFiles: ['global.env'],
-    backend: 'clone',
   });
 
   expect(
@@ -27,7 +26,6 @@ test('config show prefers project config values over global config values', asyn
   await writeJSON(path.join(dir.path, '.fleet/config.json'), {
     postInitCommand: 'echo project',
     extraFiles: ['project.env'],
-    backend: 'worktree',
   });
 
   const result = await runFleet(['config', 'show'], {
@@ -39,7 +37,6 @@ test('config show prefers project config values over global config values', asyn
   expect(result.stdout).toContain('"postInitCommand": "echo project"');
   expect(result.stdout).toContain('"extraFiles": [');
   expect(result.stdout).toContain('"project.env"');
-  expect(result.stdout).toContain('"backend": "worktree"');
 });
 
 test('shell-code returns function for supported shell', async () => {

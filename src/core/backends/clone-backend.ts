@@ -1,10 +1,13 @@
 import { ensureDir, remove } from 'fs-extra';
 import path from 'node:path';
 import { simpleGit } from 'simple-git';
-import type { FleetConfig } from '../config.js';
 import type { Backend } from './backend.js';
 
 export class CloneBackend implements Backend {
+  matches(): boolean {
+    return true;
+  }
+
   async createWorkspace({
     projectRootDir,
     workspaceDir,
@@ -14,7 +17,6 @@ export class CloneBackend implements Backend {
     projectRootDir: string;
     workspaceDir: string;
     name: string;
-    config: FleetConfig;
     baseBranch?: string;
   }): Promise<void> {
     await ensureDir(path.dirname(workspaceDir));
@@ -38,10 +40,14 @@ export class CloneBackend implements Backend {
   }): Promise<void> {
     const git = simpleGit(projectRootDir);
 
+    // we're merging into the current branch. user has to do a git checkout first, if they want to merge into a different branch
+
+    // add the workspace directory as a temporary remote
     const tempRemoteName = `temp-${name}`;
     await git.addRemote(tempRemoteName, workspaceDir);
 
     try {
+      // for some reason, this.git.fetch(tempRemoteName) doesn't work, so we're using raw git command instead
       await git.raw([
         'fetch',
         tempRemoteName,
@@ -51,7 +57,7 @@ export class CloneBackend implements Backend {
       const mergeResult = await git.merge([
         `${tempRemoteName}/${name}`,
         '-m',
-        `Merge branch '${name}'`,
+        `Merge branch '${name}'`, // use standard merge message (without remote-tracking branch name)
       ]);
       if (mergeResult.conflicts.length > 0) {
         const relativePath = path.relative(process.cwd(), projectRootDir);
@@ -70,7 +76,7 @@ export class CloneBackend implements Backend {
     try {
       await git.branch(['-d', name]);
     } catch {
-      // branch deletion might fail if it was already deleted or doesn't exist
+      // branch deletion might fail if it was already deleted or doesn't exist, that's ok
     }
 
     await remove(workspaceDir);
@@ -81,14 +87,8 @@ export class CloneBackend implements Backend {
   }: {
     projectRootDir: string;
     workspaceDir: string;
-    name: string;
     force?: boolean;
   }): Promise<void> {
     await remove(workspaceDir);
-  }
-
-  async matchesWorkspaceDir(): Promise<boolean> {
-    // Clone backend is the fallback when a workspace dir is not registered as a worktree.
-    return true;
   }
 }

@@ -1,5 +1,4 @@
-import { copy, ensureDir, pathExists } from 'fs-extra';
-import { execSync } from 'node:child_process';
+import { pathExists } from 'fs-extra';
 import path from 'node:path';
 import { simpleGit, type SimpleGit } from 'simple-git';
 
@@ -36,7 +35,7 @@ export class GitRepo {
     }
   }
 
-  async getTrackedDirtyFiles(): Promise<string[]> {
+  private async listTrackedDirtyFiles(): Promise<Set<string>> {
     try {
       const [unstaged, staged] = await Promise.all([
         this.git.diff(['--name-only']),
@@ -47,26 +46,26 @@ export class GitRepo {
         const filePath = line.trim();
         if (filePath) trackedDirtyFiles.add(filePath);
       }
-      return [...trackedDirtyFiles];
+      return trackedDirtyFiles;
     } catch {
-      return [];
+      return new Set();
     }
   }
 
-  async hasTrackedDirtyExtraFiles(patterns: string[]): Promise<string[]> {
+  async matchDirtyFiles(patterns: string[]): Promise<string[]> {
     if (patterns.length === 0) return [];
-    const trackedDirtyFiles = new Set(await this.getTrackedDirtyFiles());
+    const trackedDirtyFiles = await this.listTrackedDirtyFiles();
     if (trackedDirtyFiles.size === 0) return [];
 
     const { glob } = await import('glob');
-    const matchedTrackedDirtyExtraFiles = new Set<string>();
+    const matchedFiles = new Set<string>();
 
     for (const pattern of patterns) {
       try {
         const files = await glob(pattern, { cwd: this.workingDir });
         for (const file of files) {
           if (trackedDirtyFiles.has(file)) {
-            matchedTrackedDirtyExtraFiles.add(file);
+            matchedFiles.add(file);
           }
         }
       } catch {
@@ -74,24 +73,7 @@ export class GitRepo {
       }
     }
 
-    return [...matchedTrackedDirtyExtraFiles];
-  }
-
-  async getMainBranch(): Promise<string> {
-    try {
-      const result = await this.git.raw([
-        'symbolic-ref',
-        'refs/remotes/origin/HEAD',
-      ]);
-      return result.trim().replace('refs/remotes/origin/', '');
-    } catch {
-      try {
-        const current = await this.git.branch();
-        return current.current || GitRepo.FALLBACK_DEFAULT_GIT_BRANCH;
-      } catch {
-        return GitRepo.FALLBACK_DEFAULT_GIT_BRANCH;
-      }
-    }
+    return [...matchedFiles];
   }
 
   /**
@@ -102,8 +84,11 @@ export class GitRepo {
     try {
       const currentHead = (await this.git.revparse(['HEAD'])).trim();
       const projectRootRepo = new GitRepo(projectRootDir);
-      const projectRootHead = (await projectRootRepo.git.revparse(['HEAD'])).trim();
+      const projectRootHead = (
+        await projectRootRepo.git.revparse(['HEAD'])
+      ).trim();
 
+      // if heads are the same, no divergence
       if (currentHead === projectRootHead) {
         return false;
       }
@@ -124,7 +109,10 @@ export class GitRepo {
   }
 
   async getCurrentBranch(): Promise<string | null> {
-    return (await this.git.branch()).current || null;
+    return this.git
+      .branch()
+      .then((b) => b.current || null)
+      .catch(() => null);
   }
 
   async commitChanges(message: string): Promise<void> {
@@ -136,44 +124,5 @@ export class GitRepo {
     await this.git.init();
     await this.git.add('--all');
     await this.git.raw(['commit', '--allow-empty', '-m', 'Initial commit']);
-  }
-
-  async copyExtraFiles(args: {
-    sourceDir: string;
-    targetDir: string;
-    patterns: string[];
-  }): Promise<void> {
-    const { sourceDir, targetDir, patterns } = args;
-    const { glob } = await import('glob');
-
-    for (const pattern of patterns) {
-      try {
-        const files = await glob(pattern, { cwd: sourceDir });
-        for (const file of files) {
-          const sourcePath = path.join(sourceDir, file);
-          const targetPath = path.join(targetDir, file);
-          await ensureDir(path.dirname(targetPath));
-          await copy(sourcePath, targetPath);
-        }
-      } catch (error: unknown) {
-        console.warn(
-          `Failed to copy files matching ${pattern}: ${error instanceof Error ? error.message : String(error)}`,
-        );
-      }
-    }
-  }
-
-  async runPostInitCommand(command: string): Promise<void> {
-    try {
-      execSync(command, {
-        cwd: this.workingDir,
-        stdio: 'inherit',
-        env: process.env,
-      });
-    } catch (error: unknown) {
-      throw new Error(
-        `Post-init command failed: ${error instanceof Error ? error.message : String(error)}`,
-      );
-    }
   }
 }

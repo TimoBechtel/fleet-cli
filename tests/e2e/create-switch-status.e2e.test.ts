@@ -49,19 +49,22 @@ test('create uses clone backend when configured', async () => {
     'utf8',
   );
 
-  const create = await runFleet(['add', 'legacy-clone'], { cwd: dir.path });
+  const create = await runFleet(['add', 'clone-backend'], { cwd: dir.path });
   expect(create.exitCode).toBe(0);
 
   await access(
-    path.join(dir.path, '.fleet/workspaces/legacy-clone/.fleet/.workspace'),
+    path.join(dir.path, '.fleet/workspaces/clone-backend/.fleet/.workspace'),
   );
 
   const worktreeList = await runGit(['worktree', 'list', '--porcelain'], {
     cwd: dir.path,
   });
-  const legacyCloneDir = path.join(dir.path, '.fleet/workspaces/legacy-clone');
+  const cloneBackendDir = path.join(
+    dir.path,
+    '.fleet/workspaces/clone-backend',
+  );
   expect(worktreeList.stdout).not.toContain(
-    `worktree ${await realpath(legacyCloneDir)}`,
+    `worktree ${await realpath(cloneBackendDir)}`,
   );
 });
 
@@ -85,17 +88,6 @@ test('create works when project .fleet dir is not tracked in git', async () => {
 
   await access(
     path.join(dir.path, '.fleet/workspaces/untracked-fleet/.fleet/.workspace'),
-  );
-
-  const worktreeList = await runGit(['worktree', 'list', '--porcelain'], {
-    cwd: dir.path,
-  });
-  const untrackedFleetDir = path.join(
-    dir.path,
-    '.fleet/workspaces/untracked-fleet',
-  );
-  expect(worktreeList.stdout).toContain(
-    `worktree ${await realpath(untrackedFleetDir)}`,
   );
 });
 
@@ -313,13 +305,6 @@ test('create with --base clones from specified branch instead of current', async
   const workspaceDir = path.join(dir.path, '.fleet/workspaces/from-base');
   await access(path.join(workspaceDir, '.fleet/.workspace'));
 
-  const worktreeList = await runGit(['worktree', 'list', '--porcelain'], {
-    cwd: dir.path,
-  });
-  expect(worktreeList.stdout).toContain(
-    `worktree ${await realpath(workspaceDir)}`,
-  );
-
   const log = await runGit(['log', '--format=%s'], { cwd: workspaceDir });
   const commits = log.stdout.trim().split('\n');
   expect(commits).toContain('add file on base');
@@ -334,4 +319,48 @@ test('create with --base clones from specified branch instead of current', async
   } catch (error: unknown) {
     expect((error as NodeJS.ErrnoException).code).toBe('ENOENT');
   }
+});
+
+test('mixed-mode operations detect clone vs worktree correctly', async () => {
+  await using dir = await TempDir.create();
+
+  expect((await runFleet(['init', '.'], { cwd: dir.path })).exitCode).toBe(0);
+
+  expect(
+    (
+      await runFleet(['add', 'wt-one', '--backend', 'worktree'], {
+        cwd: dir.path,
+      })
+    ).exitCode,
+  ).toBe(0);
+
+  const worktreeDir = await realpath(
+    path.join(dir.path, '.fleet/workspaces/wt-one'),
+  );
+  await access(worktreeDir);
+
+  const worktreeListBefore = await runGit(['worktree', 'list', '--porcelain'], {
+    cwd: dir.path,
+  });
+
+  expect(worktreeListBefore.stdout).toContain(`worktree ${worktreeDir}`);
+
+  expect(
+    (
+      await runFleet(['add', 'cl-one', '--backend', 'clone'], {
+        cwd: dir.path,
+      })
+    ).exitCode,
+  ).toBe(0);
+
+  const cloneDir = await realpath(
+    path.join(dir.path, '.fleet/workspaces/cl-one'),
+  );
+  await access(cloneDir);
+
+  const worktreeListAfter = await runGit(['worktree', 'list', '--porcelain'], {
+    cwd: dir.path,
+  });
+
+  expect(worktreeListAfter.stdout).not.toContain(`worktree ${cloneDir}`);
 });

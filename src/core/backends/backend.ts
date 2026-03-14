@@ -1,15 +1,28 @@
-import type { FleetConfig } from '../config.js';
-import { CloneBackend } from './clone-backend.js';
-import { WorktreeBackend } from './worktree-backend.js';
+import type { FleetConfig } from '../config';
+import { CloneBackend } from './clone-backend';
+import { WorktreeBackend } from './worktree-backend';
 
-export type Backend = {
+/**
+ * Available backends. Ordered by priority.
+ */
+const registry = {
+  worktree: new WorktreeBackend(),
+  clone: new CloneBackend(),
+} as const satisfies Record<FleetConfig['backend'], Backend>;
+
+export interface Backend {
+  /**
+   * Merges a workspace directory into the project root and deletes the workspace directory.
+   */
   createWorkspace(args: {
     projectRootDir: string;
     workspaceDir: string;
     name: string;
-    config: FleetConfig;
     baseBranch?: string;
   }): Promise<void>;
+  /**
+   * Merges the workspace into the project root.
+   */
   mergeWorkspace(args: {
     projectRootDir: string;
     workspaceDir: string;
@@ -18,30 +31,29 @@ export type Backend = {
   removeWorkspace(args: {
     projectRootDir: string;
     workspaceDir: string;
-    name: string;
     force?: boolean;
   }): Promise<void>;
-  matchesWorkspaceDir(args: {
+  matches(detectionInput: {
     projectRootDir: string;
     workspaceDir: string;
-  }): Promise<boolean>;
-};
+  }): Promise<boolean> | boolean;
+}
 
 async function detect(args: {
   projectRootDir: string;
   workspaceDir: string;
 }): Promise<Backend> {
-  // Detection by reality (mixed-mode safe). Worktree details stay inside WorktreeBackend.
-  const worktreeBackend = new WorktreeBackend();
-  if (await worktreeBackend.matchesWorkspaceDir(args)) {
-    return worktreeBackend;
+  const backends = Object.values(registry);
+  for (const backend of backends) {
+    if (await backend.matches(args)) {
+      return backend;
+    }
   }
-
-  return new CloneBackend();
+  throw new Error('No backend found for workspace directory');
 }
 
 function pick(kind: FleetConfig['backend']): Backend {
-  return kind === 'worktree' ? new WorktreeBackend() : new CloneBackend();
+  return registry[kind];
 }
 
 export const Backend = {

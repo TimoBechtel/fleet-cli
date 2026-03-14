@@ -1,6 +1,6 @@
+import { confirm } from '@inquirer/prompts';
 import chalk from 'chalk';
 import { pathExists } from 'fs-extra';
-import { confirm } from '@inquirer/prompts';
 import { Backend } from '../core/backends/backend.js';
 import { FleetProject } from '../core/fleet.js';
 import { GitRepo } from '../core/git-repo.js';
@@ -44,9 +44,9 @@ export async function deleteCommand(
       backend,
       config: fleet.config,
     });
-    const repo = new GitRepo(workspaceDir);
 
     if (!options?.force) {
+      const repo = new GitRepo(workspaceDir);
       if (await repo.hasUncommittedChanges()) {
         console.error(chalk.red('Error: workspace is not safe to delete'));
         console.error(chalk.red('  Workspace has uncommitted changes'));

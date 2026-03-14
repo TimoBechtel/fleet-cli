@@ -83,23 +83,19 @@ test('__complete commands supports descriptions', async () => {
   expect(result.stdout).toContain('init\t');
 });
 
-test(
-  '__complete options lists option tokens with descriptions',
-  async () => {
-    await using dir = await TempDir.create();
+test('__complete options lists option tokens with descriptions', async () => {
+  await using dir = await TempDir.create();
 
-    const result = await runFleet(
-      ['__complete', 'options', 'switch', '--with-descriptions'],
-      { cwd: dir.path },
-    );
+  const result = await runFleet(
+    ['__complete', 'options', 'switch', '--with-descriptions'],
+    { cwd: dir.path },
+  );
 
-    expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain('--root\t');
-    expect(result.stdout).toContain('-r\t');
-    expect(result.stdout).not.toContain('--help');
-  },
-  { timeout: 20_000 },
-);
+  expect(result.exitCode).toBe(0);
+  expect(result.stdout).toContain('--root\t');
+  expect(result.stdout).toContain('-r\t');
+  expect(result.stdout).not.toContain('--help');
+});
 
 test('__complete descriptions are single-line and tab-safe', async () => {
   await using dir = await TempDir.create();

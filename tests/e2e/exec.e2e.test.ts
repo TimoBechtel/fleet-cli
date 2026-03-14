@@ -31,9 +31,7 @@ test('exec accepts explicit directory path', async () => {
   expect(result.stdout).toContain(dir.path);
 });
 
-test(
-  'exec fails when workspace or directory does not exist',
-  async () => {
+test('exec fails when workspace or directory does not exist', async () => {
   await using dir = await TempDir.create();
 
   expect((await runFleet(['init', '.'], { cwd: dir.path })).exitCode).toBe(0);
@@ -44,9 +42,7 @@ test(
 
   expect(result.exitCode).toBe(1);
   expect(result.stderr).toContain('does not exist');
-  },
-  { timeout: 20_000 },
-);
+});
 
 test('exec propagates child command exit code', async () => {
   await using dir = await TempDir.create();

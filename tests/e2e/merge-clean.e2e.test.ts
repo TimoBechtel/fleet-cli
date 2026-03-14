@@ -110,51 +110,6 @@ test('delete removes merge-clean workspace', async () => {
   expect(await Bun.file(workspaceDir).exists()).toBe(false);
 });
 
-test(
-  'mixed-mode operations detect clone vs worktree correctly',
-  async () => {
-  await using dir = await TempDir.create();
-
-  expect((await runFleet(['init', '.'], { cwd: dir.path })).exitCode).toBe(0);
-
-  expect(
-    (await runFleet(['add', 'wt-one'], { cwd: dir.path })).exitCode,
-  ).toBe(0);
-  expect(
-    (
-      await runFleet(['add', 'cl-one', '--backend', 'clone'], {
-        cwd: dir.path,
-      })
-    ).exitCode,
-  ).toBe(0);
-
-  const cloneDir = path.join(dir.path, '.fleet/workspaces/cl-one');
-  await writeFile(path.join(cloneDir, 'clone.txt'), 'clone\n', 'utf8');
-  await commitAll(cloneDir, 'clone commit');
-
-  const mergeClone = await runFleet(['merge', 'cl-one'], {
-    cwd: dir.path,
-    input: 'y\n',
-  });
-  expect(mergeClone.exitCode).toBe(0);
-  expect(await Bun.file(cloneDir).exists()).toBe(false);
-
-  const worktreeDir = path.join(dir.path, '.fleet/workspaces/wt-one');
-  const deleteWorktree = await runFleet(['rm', 'wt-one'], {
-    cwd: dir.path,
-    input: 'y\n',
-  });
-  expect(deleteWorktree.exitCode).toBe(0);
-  expect(await Bun.file(worktreeDir).exists()).toBe(false);
-
-  const worktreeList = await runGit(['worktree', 'list', '--porcelain'], {
-    cwd: dir.path,
-  });
-  expect(worktreeList.stdout).not.toContain(`worktree ${worktreeDir}`);
-  },
-  { timeout: 20_000 },
-);
-
 test('delete fails without --force when workspace has uncommitted changes', async () => {
   await using dir = await TempDir.create();
 

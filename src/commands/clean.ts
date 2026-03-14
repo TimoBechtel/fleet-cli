@@ -1,18 +1,11 @@
+import { confirm } from '@inquirer/prompts';
 import chalk from 'chalk';
 import { pathExists } from 'fs-extra';
-import { confirm } from '@inquirer/prompts';
 import { Backend } from '../core/backends/backend.js';
-import { FleetProject } from '../core/fleet.js';
 import type { FleetConfig } from '../core/config.js';
+import { FleetProject } from '../core/fleet.js';
 import { GitRepo } from '../core/git-repo.js';
 import { Workspace } from '../core/workspace.js';
-
-interface CleanableDirectory {
-  name: string;
-  path: string;
-  reason: string[];
-  workspace: Workspace;
-}
 
 export async function cleanCommand(options?: { yes?: boolean }) {
   try {
@@ -22,9 +15,8 @@ export async function cleanCommand(options?: { yes?: boolean }) {
     console.log();
 
     const workspaces = await fleet.getWorkspaces();
-    const cleanableDirectories: CleanableDirectory[] = [];
+    const cleanableWorkspaces: CleanableWorkspace[] = [];
 
-    // Check each workspace
     for (const workspaceName of workspaces) {
       const workspaceDir = fleet.buildWorkspacePath(workspaceName);
       const cleanable = await checkDirectoryCleanable({
@@ -35,24 +27,23 @@ export async function cleanCommand(options?: { yes?: boolean }) {
       });
 
       if (cleanable) {
-        cleanableDirectories.push(cleanable);
+        cleanableWorkspaces.push(cleanable);
       }
     }
 
-    if (cleanableDirectories.length === 0) {
+    if (cleanableWorkspaces.length === 0) {
       console.log(chalk.green('Done: no workspaces ready for cleanup'));
       return;
     }
 
-    // Display directories to be cleaned
     console.log(
       chalk.bold(
-        `Workspaces ready for cleanup (${cleanableDirectories.length}):`,
+        `Workspaces ready for cleanup (${cleanableWorkspaces.length}):`,
       ),
     );
     console.log();
 
-    cleanableDirectories.forEach((dir) => {
+    cleanableWorkspaces.forEach((dir) => {
       console.log(`  - ${chalk.bold(dir.name)}`);
       dir.reason.forEach((reason) => {
         console.log(chalk.dim(`    ${reason}`));
@@ -63,7 +54,7 @@ export async function cleanCommand(options?: { yes?: boolean }) {
 
     if (!options?.yes) {
       const confirmed = await confirm({
-        message: `Remove ${cleanableDirectories.length} directories?`,
+        message: `Remove ${cleanableWorkspaces.length} directories?`,
         default: false,
       });
 
@@ -73,9 +64,8 @@ export async function cleanCommand(options?: { yes?: boolean }) {
       }
     }
 
-    // Remove directories
     let removedCount = 0;
-    for (const dir of cleanableDirectories) {
+    for (const dir of cleanableWorkspaces) {
       try {
         await dir.workspace.remove();
         removedCount++;
@@ -97,13 +87,24 @@ export async function cleanCommand(options?: { yes?: boolean }) {
   }
 }
 
-async function checkDirectoryCleanable(args: {
+interface CleanableWorkspace {
+  name: string;
+  path: string;
+  reason: string[];
+  workspace: Workspace;
+}
+
+async function checkDirectoryCleanable({
+  workspaceName,
+  workspaceDir,
+  projectRootDir,
+  config,
+}: {
   workspaceName: string;
   workspaceDir: string;
   projectRootDir: string;
   config: FleetConfig;
-}): Promise<CleanableDirectory | null> {
-  const { workspaceName, workspaceDir, projectRootDir, config } = args;
+}): Promise<CleanableWorkspace | null> {
   if (!(await pathExists(workspaceDir))) {
     return null;
   }
@@ -121,16 +122,14 @@ async function checkDirectoryCleanable(args: {
   });
   const repo = new GitRepo(workspaceDir);
 
-  const cleanable: CleanableDirectory = {
+  const cleanable: CleanableWorkspace = {
     name: workspaceName,
     path: workspaceDir,
     reason: [],
     workspace,
   };
 
-  // Check for uncommitted changes
   if (await repo.hasUncommittedChanges()) {
-    // Don't clean directories with uncommitted changes
     return null;
   }
 
@@ -138,14 +137,11 @@ async function checkDirectoryCleanable(args: {
     if (!(await repo.isDiverged(projectRootDir))) {
       cleanable.reason.push(`Workspace is merged into project root`);
     } else {
-      // Don't clean diverged workspaces
       return null;
     }
   } catch {
-    // If we can't check merge status, be conservative
     return null;
   }
 
-  // Only clean if we have at least one good reason
   return cleanable.reason.length > 0 ? cleanable : null;
 }

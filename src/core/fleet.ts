@@ -2,12 +2,12 @@ import chalk from 'chalk';
 import { ensureDir, pathExists } from 'fs-extra';
 import { readdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { Backend } from './backends/backend.js';
 import {
   ConfigManager,
   type FleetConfig,
   type FleetConfigInput,
 } from './config.js';
-import { Backend } from './backends/backend.js';
 import { GitRepo } from './git-repo.js';
 import { Workspace } from './workspace.js';
 
@@ -119,8 +119,13 @@ export class FleetProject {
 
   async createWorkspace(
     name: string,
-    baseBranch?: string,
-    backendOverride?: FleetConfig['backend'],
+    {
+      baseBranch,
+      backend,
+    }: {
+      baseBranch?: string;
+      backend?: FleetConfig['backend'];
+    } = {},
   ): Promise<Workspace> {
     const workspaceDir = this.buildWorkspacePath(name);
     if (await pathExists(workspaceDir)) {
@@ -133,7 +138,7 @@ export class FleetProject {
         chalk.yellow('Warning: project root is dirty. Ignoring dirty files.'),
       );
     }
-    const dirtyExtra = await projectRootRepo.hasTrackedDirtyExtraFiles(
+    const dirtyExtra = await projectRootRepo.matchDirtyFiles(
       this.config.extraFiles,
     );
     if (dirtyExtra.length > 0) {
@@ -142,8 +147,7 @@ export class FleetProject {
       );
     }
 
-    const backend = backendOverride ?? this.config.backend;
-    const backendImpl = Backend.pick(backend);
+    const backendImpl = Backend.pick(backend ?? this.config.backend);
 
     const workspace = new Workspace({
       projectRootDir: this.root,

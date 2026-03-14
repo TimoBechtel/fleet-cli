@@ -1,9 +1,9 @@
-import { ensureDir, pathExists } from 'fs-extra';
+import { copy, ensureDir, pathExists } from 'fs-extra';
+import { execSync } from 'node:child_process';
 import { copyFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { Backend } from './backends/backend.js';
 import type { FleetConfig } from './config.js';
-import { GitRepo } from './git-repo.js';
 
 // TODO: i think we should inject the fleet project into the workspace, so that we don't have to pass the config around. and create workspace from fleet project?
 
@@ -28,7 +28,6 @@ export class Workspace {
       projectRootDir: this.ctx.projectRootDir,
       workspaceDir: this.ctx.workspaceDir,
       name: this.ctx.name,
-      config: this.ctx.config,
       baseBranch,
     });
 
@@ -51,7 +50,6 @@ export class Workspace {
     await this.ctx.backend.removeWorkspace({
       projectRootDir: this.ctx.projectRootDir,
       workspaceDir: this.ctx.workspaceDir,
-      name: this.ctx.name,
       force: options?.force,
     });
   }
@@ -85,8 +83,7 @@ export class Workspace {
 
   private async runPostInitSteps(): Promise<void> {
     if (this.ctx.config.extraFiles.length) {
-      const rootRepo = new GitRepo(this.ctx.projectRootDir);
-      await rootRepo.copyExtraFiles({
+      await this.copyExtraFiles({
         sourceDir: this.ctx.projectRootDir,
         targetDir: this.ctx.workspaceDir,
         patterns: this.ctx.config.extraFiles,
@@ -94,8 +91,48 @@ export class Workspace {
     }
 
     if (this.ctx.config.postInitCommand) {
-      const wsRepo = new GitRepo(this.ctx.workspaceDir);
-      await wsRepo.runPostInitCommand(this.ctx.config.postInitCommand);
+      await this.runPostInitCommand(this.ctx.config.postInitCommand);
+    }
+  }
+
+  private async runPostInitCommand(command: string): Promise<void> {
+    try {
+      execSync(command, {
+        cwd: this.ctx.workspaceDir,
+        stdio: 'inherit',
+      });
+    } catch (error: unknown) {
+      throw new Error(
+        `Post-init command failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  private async copyExtraFiles({
+    sourceDir,
+    targetDir,
+    patterns,
+  }: {
+    sourceDir: string;
+    targetDir: string;
+    patterns: string[];
+  }): Promise<void> {
+    const { glob } = await import('glob');
+
+    for (const pattern of patterns) {
+      try {
+        const files = await glob(pattern, { cwd: sourceDir });
+        for (const file of files) {
+          const sourcePath = path.join(sourceDir, file);
+          const targetPath = path.join(targetDir, file);
+          await ensureDir(path.dirname(targetPath));
+          await copy(sourcePath, targetPath);
+        }
+      } catch (error: unknown) {
+        console.warn(
+          `Failed to copy files matching ${pattern}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
     }
   }
 }

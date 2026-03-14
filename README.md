@@ -43,28 +43,19 @@ fleet completion --shell fish | source
 
 ## Backends (worktree vs clone)
 
-`fleet` uses git worktrees by default. They are fast, space-efficient, and keep your workspaces in sync with the main repo.
+`fleet` uses git worktrees by default.
 
-You can switch to full clones if you need maximum isolation or you run tools that don’t behave well with worktrees.
+You can switch to full clones if you run tools that don’t behave well with worktrees. For example, when using AI agents with sandboxing.
 
-Config (project `.fleet/config.json` or global `~/.config/fleet/config.json`, project overrides global):
+Config (project `.fleet/config.json` or global `~/.config/fleet/config.json):
 
 ```json
 {
-  "backend": "worktree"
+  "backend": "clone"
 }
 ```
 
-CLI override for creation:
-
-```bash
-fleet add my-task --backend clone
-fleet switch my-task --create --backend worktree
-```
-
-Tradeoffs:
-- Worktrees share git internals. This can be problematic if multiple agents run heavy git maintenance (e.g. aggressive GC) at the same time.
-- Clones are fully isolated, but slower and use more disk.
+Or use `--backend clone|worktree` when creating workspaces.
 
 ## Quick start
 

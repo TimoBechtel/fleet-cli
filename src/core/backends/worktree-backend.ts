@@ -1,10 +1,19 @@
 import { ensureDir } from 'fs-extra';
 import path from 'node:path';
 import { simpleGit } from 'simple-git';
-import type { FleetConfig } from '../config.js';
 import type { Backend } from './backend.js';
 
 export class WorktreeBackend implements Backend {
+  async matches(detectionInput: {
+    projectRootDir: string;
+    workspaceDir: string;
+  }): Promise<boolean> {
+    const worktreePaths = await this.loadWorktreePaths(
+      detectionInput.projectRootDir,
+    );
+    return worktreePaths.has(path.resolve(detectionInput.workspaceDir));
+  }
+
   async createWorkspace({
     projectRootDir,
     workspaceDir,
@@ -14,10 +23,10 @@ export class WorktreeBackend implements Backend {
     projectRootDir: string;
     workspaceDir: string;
     name: string;
-    config: FleetConfig;
     baseBranch?: string;
   }): Promise<void> {
     await ensureDir(path.dirname(workspaceDir));
+
     const git = simpleGit(projectRootDir);
     const gitArgs = ['worktree', 'add', '-b', name, workspaceDir];
     if (baseBranch) gitArgs.push(baseBranch);
@@ -35,6 +44,8 @@ export class WorktreeBackend implements Backend {
   }): Promise<void> {
     const git = simpleGit(projectRootDir);
 
+    // we're merging into the current branch. user has to do a git checkout first, if they want to merge into a different branch
+
     try {
       await git.raw(['merge', name]);
     } catch {
@@ -45,18 +56,20 @@ export class WorktreeBackend implements Backend {
     }
 
     await git.raw(['worktree', 'remove', workspaceDir]);
-    await this.deleteBranch(git, name);
+    try {
+      await git.branch(['-d', name]);
+    } catch {
+      // ignore if branch doesn't exist or can't be deleted
+    }
   }
 
   async removeWorkspace({
     projectRootDir,
     workspaceDir,
-    name,
     force,
   }: {
     projectRootDir: string;
     workspaceDir: string;
-    name: string;
     force?: boolean;
   }): Promise<void> {
     const git = simpleGit(projectRootDir);
@@ -64,30 +77,7 @@ export class WorktreeBackend implements Backend {
     if (force) gitArgs.push('--force');
     gitArgs.push(workspaceDir);
     await git.raw(gitArgs);
-    await this.deleteBranch(git, name, force);
-  }
-
-  async matchesWorkspaceDir({
-    projectRootDir,
-    workspaceDir,
-  }: {
-    projectRootDir: string;
-    workspaceDir: string;
-  }): Promise<boolean> {
-    const worktreePaths = await this.loadWorktreePaths(projectRootDir);
-    return worktreePaths.has(path.resolve(workspaceDir));
-  }
-
-  private async deleteBranch(
-    git: ReturnType<typeof simpleGit>,
-    name: string,
-    force?: boolean,
-  ): Promise<void> {
-    try {
-      await git.branch([force ? '-D' : '-d', name]);
-    } catch {
-      // ignore if branch doesn't exist or can't be deleted
-    }
+    // should we also delete the branch here? (if so, need to do this in the other backends too)
   }
 
   private async loadWorktreePaths(

@@ -1,5 +1,5 @@
-import type { Command } from 'commander';
 import chalk from 'chalk';
+import type { Command, CommandUnknownOpts } from 'commander';
 import { FleetProject } from '../core/fleet.js';
 import { ShellIntegration } from '../core/shell-integration.js';
 
@@ -28,7 +28,7 @@ export function completionCommand(options: { shell?: string } = {}) {
   }
 }
 
-export function createCompleteCommand(program: Command) {
+export function createCompleteCommand(program: CommandUnknownOpts) {
   return async function completeCommand(
     resource?: string,
     target?: string,
@@ -256,14 +256,13 @@ complete -c fleet -f -n '__fleet_needs_workspace' -a '(fleet __complete workspac
 type CompletionLine = { token: string; description?: string };
 
 function getTopLevelCommands(
-  program: Command,
+  program: CommandUnknownOpts,
   includeDescriptions: boolean,
 ): CompletionLine[] {
   const entries: CompletionLine[] = [];
   const seen = new Set<string>();
 
-  // Commander v14: program.commands is CommandUnknownOpts[], cast to Command[] for iteration
-  for (const command of program.commands as unknown as Command[]) {
+  for (const command of program.commands) {
     if (isHiddenCommand(command)) continue;
 
     const description = command.description() || '';
@@ -283,7 +282,7 @@ function getTopLevelCommands(
 }
 
 function getCommandOptions(
-  program: Command,
+  program: CommandUnknownOpts,
   commandName: string,
   includeDescriptions: boolean,
 ): CompletionLine[] {
@@ -320,16 +319,18 @@ function getCommandOptions(
   return entries;
 }
 
-function findCommand(program: Command, commandName: string): Command | null {
-  for (const command of program.commands as unknown as Command[]) {
+function findCommand(
+  program: CommandUnknownOpts,
+  commandName: string,
+): CommandUnknownOpts | null {
+  for (const command of program.commands) {
     if (command.name() === commandName) return command;
     if (command.aliases().includes(commandName)) return command;
   }
   return null;
 }
 
-function isHiddenCommand(command: Command): boolean {
-  // Commander v14: use .hidden property, not .isHidden() method
+function isHiddenCommand(command: CommandUnknownOpts): boolean {
   const hiddenFlag = Boolean(
     (command as Command & { hidden?: boolean }).hidden,
   );

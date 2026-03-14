@@ -77,7 +77,10 @@ export async function switchCommand(
 
     if (!targetDir) {
       if (options?.add) {
-        await fleet.createWorkspace(workspaceName, options.base, options.backend);
+        await fleet.createWorkspace(workspaceName, {
+          baseBranch: options.base,
+          backend: options.backend,
+        });
         targetDir = fleet.buildWorkspacePath(workspaceName);
 
         console.log(chalk.green(`Done: workspace "${workspaceName}" created`));
