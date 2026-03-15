@@ -5,7 +5,7 @@
 CLI that creates isolated, git-backed workspaces for a single project.
 It helps when multiple AI agents (or humans) need to work in parallel without conflicts.
 
-Each task gets its own workspace in `.fleet/workspaces/<name>` instead of juggling branches in one directory.
+Each task gets its own workspace in `.fleet/workspaces/<name>`.
 
 ## Install
 
