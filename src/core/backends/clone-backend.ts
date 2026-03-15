@@ -96,6 +96,9 @@ export class CloneBackend implements Backend {
     await remove(workspaceDir);
   }
 
+  // We clone from the project root path, so git sets origin to that local path.
+  // Keep workspace clones pointing at the same origin remote as the project root
+  // so fetch/push behave the way users expect.
   private async syncOriginRemote({
     projectRootDir,
     workspaceDir,
