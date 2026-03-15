@@ -43,8 +43,21 @@ export function createProgram(): Command {
     .argument('<workspace-or-directory>', 'Workspace name or directory path')
     .argument('<command>', 'Command to execute')
     .argument('[args...]', 'Command arguments', [])
+    .option('-a, --add', 'Create workspace if missing')
+    .option(
+      '-b, --base <branch>',
+      'Clone from specific branch instead of current',
+    )
+    .addOption(
+      new Option('--backend <backend>', 'Workspace backend').choices([
+        'worktree',
+        'clone',
+      ] satisfies FleetConfig['backend'][]),
+    )
     .allowUnknownOption()
-    .action(execCommand);
+    .action((workspaceOrDirectory, command, args, options) =>
+      execCommand(workspaceOrDirectory, command, args, options),
+    );
 
   program
     .command('add')

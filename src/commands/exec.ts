@@ -2,6 +2,7 @@ import chalk from 'chalk';
 import { pathExists } from 'fs-extra';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
+import type { FleetConfig } from '../core/config.js';
 import { FleetProject } from '../core/fleet.js';
 import { resolveWorkspaceDirectory } from '../core/utils.js';
 
@@ -9,6 +10,11 @@ export async function execCommand(
   workspaceOrDirectory: string,
   command: string,
   args?: string[],
+  options: {
+    add?: boolean;
+    base?: string;
+    backend?: FleetConfig['backend'];
+  } = {},
 ) {
   try {
     let targetDir: string | null = null;
@@ -16,6 +22,17 @@ export async function execCommand(
     let fleet = await FleetProject.findFleetProject();
     if (fleet) {
       targetDir = await resolveWorkspaceDirectory(fleet, workspaceOrDirectory);
+      const looksLikeWorkspaceName =
+        !workspaceOrDirectory.includes(path.sep) &&
+        workspaceOrDirectory !== '.' &&
+        workspaceOrDirectory !== '..';
+      if (!targetDir && options.add && looksLikeWorkspaceName) {
+        await fleet.addWorkspace(workspaceOrDirectory, {
+          baseBranch: options.base,
+          backend: options.backend,
+        });
+        targetDir = fleet.buildWorkspacePath(workspaceOrDirectory);
+      }
     }
 
     if (!targetDir) {
@@ -29,6 +46,10 @@ export async function execCommand(
       console.error(
         chalk.red(`Error: directory or workspace does not exist: ${targetDir}`),
       );
+      console.error(
+        chalk.dim('Try: fleet exec --add <workspace> <command> [args...]'),
+      );
+      console.error(chalk.dim('Or: fleet add <workspace>'));
       process.exit(1);
     }
 

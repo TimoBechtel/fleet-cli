@@ -39,9 +39,22 @@ function runCommand(
   options: RunOptions,
 ): Promise<RunResult> {
   return new Promise<RunResult>((resolve, reject) => {
+    const env: NodeJS.ProcessEnv = {
+      ...process.env,
+      ...FLEET_ENV,
+      ...options.env,
+    };
+    // Git hooks run with repo-scoped env vars set; strip them to keep tests isolated.
+    delete env.GIT_DIR;
+    delete env.GIT_WORK_TREE;
+    delete env.GIT_INDEX_FILE;
+    delete env.GIT_COMMON_DIR;
+    delete env.GIT_OBJECT_DIRECTORY;
+    delete env.GIT_ALTERNATE_OBJECT_DIRECTORIES;
+    delete env.GIT_CEILING_DIRECTORIES;
     const child = spawn(command, args, {
       cwd: options.cwd,
-      env: { ...process.env, ...FLEET_ENV, ...options.env },
+      env,
       stdio: 'pipe',
     });
 
