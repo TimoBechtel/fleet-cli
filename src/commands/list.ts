@@ -1,7 +1,7 @@
 import chalk from 'chalk';
 import { FleetProject } from '../core/fleet.js';
+import { GitRepo } from '../core/git-repo.js';
 import { getCurrentWorkspaceName } from '../core/utils.js';
-import { Workspace } from '../core/workspace.js';
 
 export async function listCommand(opts?: { verbose?: boolean }) {
   try {
@@ -67,10 +67,10 @@ async function printWorkspaceStatus(
   console.log(line);
 
   if (verbose && gitStatus.isRepo) {
-    const workspace = new Workspace(dirPath);
-    const branch = (await workspace.getCurrentBranch()) ?? 'unknown';
-    const hasChanges = await workspace.hasUncommittedChanges();
-    const diverged = await workspace.isDiverged(fleet.root);
+    const repo = new GitRepo(dirPath);
+    const branch = (await repo.getCurrentBranch()) ?? 'unknown';
+    const hasChanges = await repo.hasUncommittedChanges();
+    const diverged = await repo.isDiverged(fleet.root);
     console.log(chalk.dim(`    branch: ${branch}`));
     console.log(chalk.dim(`    state: ${hasChanges ? 'dirty' : 'clean'}`));
     console.log(chalk.dim(`    diverged: ${diverged ? 'yes' : 'no'}`));
@@ -82,9 +82,9 @@ async function printWorkspaceStatus(
 }
 
 async function getGitStatus(dirPath: string) {
-  if (await Workspace.isGitRoot(dirPath)) {
-    const workspace = new Workspace(dirPath);
-    const hasChanges = await workspace.hasUncommittedChanges();
+  if (await GitRepo.isGitRoot(dirPath)) {
+    const repo = new GitRepo(dirPath);
+    const hasChanges = await repo.hasUncommittedChanges();
     return {
       isRepo: true,
       hasChanges,

@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test';
 import { access, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { commitAll, runFleet } from '../helpers/cli';
+import { commitAll, runFleet, runGit } from '../helpers/cli';
 import { TempDir } from '../helpers/temp-dir';
 
 test('merge integrates workspace changes and removes workspace directory', async () => {
@@ -31,6 +31,11 @@ test('merge integrates workspace changes and removes workspace directory', async
   expect(merged.stdout).toContain('merged');
   await access(path.join(dir.path, 'feature.txt'));
   expect(await Bun.file(workspaceDir).exists()).toBe(false);
+
+  const worktreeList = await runGit(['worktree', 'list', '--porcelain'], {
+    cwd: dir.path,
+  });
+  expect(worktreeList.stdout).not.toContain(`worktree ${workspaceDir}`);
 });
 
 test('merge fails when workspace has uncommitted changes', async () => {
@@ -75,6 +80,13 @@ test('clean removes merged workspace and keeps diverged one', async () => {
     await Bun.file(path.join(dir.path, '.fleet/workspaces/clean-me')).exists(),
   ).toBe(false);
   await access(path.join(dir.path, '.fleet/workspaces/keep-me'));
+
+  const worktreeList = await runGit(['worktree', 'list', '--porcelain'], {
+    cwd: dir.path,
+  });
+  expect(worktreeList.stdout).not.toContain(
+    `worktree ${path.join(dir.path, '.fleet/workspaces/clean-me')}`,
+  );
 });
 
 test('delete removes merge-clean workspace', async () => {

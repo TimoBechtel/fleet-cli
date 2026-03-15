@@ -1,6 +1,10 @@
-import { Command } from 'commander';
+import { Command, Option } from 'commander';
+import packageJson from '../package.json';
 import { cleanCommand } from './commands/clean.js';
-import { completionCommand, createCompleteCommand } from './commands/completion.js';
+import {
+  completionCommand,
+  createCompleteCommand,
+} from './commands/completion.js';
 import { configCommand } from './commands/config.js';
 import { createCommand } from './commands/create.js';
 import { deleteCommand } from './commands/delete.js';
@@ -10,7 +14,7 @@ import { listCommand } from './commands/list.js';
 import { mergeCommand } from './commands/merge.js';
 import { shellCodeCommand } from './commands/shell-code.js';
 import { switchCommand } from './commands/switch.js';
-import packageJson from '../package.json';
+import type { FleetConfig } from './core/config.js';
 
 export function createProgram(): Command {
   const program = new Command();
@@ -26,8 +30,11 @@ export function createProgram(): Command {
       'Initialize a new Fleet project or add Fleet to existing project',
     )
     .argument('[name]', 'Project name or directory', '.')
-    .option('--stealth', 'Initialize a Fleet project without tracking .fleet/ in git')
-    .action((name, options) => initCommand(name, options));
+    .option(
+      '--stealth',
+      'Initialize a Fleet project without tracking .fleet/ in git',
+    )
+    .action(initCommand);
 
   program
     .command('exec')
@@ -48,6 +55,12 @@ export function createProgram(): Command {
       'Clone from specific branch instead of current',
     )
     .option('-s, --switch', 'Switch to the new workspace after creation')
+    .addOption(
+      new Option('--backend <backend>', 'Workspace backend').choices([
+        'worktree',
+        'clone',
+      ] satisfies FleetConfig['backend'][]),
+    )
     .action(createCommand);
 
   program
@@ -56,7 +69,16 @@ export function createProgram(): Command {
     .description('Navigate to a specific workspace')
     .argument('[workspace]', 'Workspace to switch to')
     .option('-a, --add', "Create workspace if it doesn't exist")
-    .option('-b, --base <branch>', 'Clone from specific branch instead of current')
+    .option(
+      '-b, --base <branch>',
+      'Clone from specific branch instead of current',
+    )
+    .addOption(
+      new Option('--backend <backend>', 'Workspace backend').choices([
+        'worktree',
+        'clone',
+      ] satisfies FleetConfig['backend'][]),
+    )
     .option('-r, --root', 'Switch to project root')
     .action(switchCommand);
 
@@ -70,13 +92,13 @@ export function createProgram(): Command {
     .alias('list')
     .description('List all workspaces and their git state')
     .option('-v, --verbose', 'Show detailed git info per workspace')
-    .action((options) => listCommand(options));
+    .action(listCommand);
 
   program
     .command('clean')
     .description('Remove merged workspaces safely')
     .option('-y, --yes', 'Skip interactive confirmation')
-    .action((options) => cleanCommand(options));
+    .action(cleanCommand);
 
   program
     .command('rm')
@@ -86,7 +108,7 @@ export function createProgram(): Command {
       '-f, --force',
       'Delete even if workspace has uncommitted changes or diverged commits',
     )
-    .action((workspace, options) => deleteCommand(workspace, options));
+    .action(deleteCommand);
 
   program
     .command('merge')
@@ -95,7 +117,7 @@ export function createProgram(): Command {
     )
     .argument('<workspace>', 'Workspace name to merge')
     .option('-y, --yes', 'Skip interactive confirmation')
-    .action((workspace, options) => mergeCommand(workspace, options));
+    .action(mergeCommand);
 
   program
     .command('config')

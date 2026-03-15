@@ -5,7 +5,7 @@
 CLI that creates isolated, git-backed workspaces for a single project.
 It helps when multiple AI agents (or humans) need to work in parallel without conflicts.
 
-Each task gets its own full workspace in `.fleet/workspaces/<name>` instead of juggling branches in one directory.
+Each task gets its own workspace in `.fleet/workspaces/<name>`.
 
 ## Install
 
@@ -41,11 +41,21 @@ fleet completion --shell fish | source
 - Run commands in any workspace with `fleet exec`.
 - Each agent gets its own directory and git state. No interference.
 
-## Why not git worktrees
+## Backends (worktree vs clone)
 
-`fleet` uses full clones, not worktrees.
+`fleet` uses git worktrees by default.
 
-Worktrees share git internals. That causes problems when multiple agents write to the same repo concurrently. Full clones don't have this issue, and every workspace looks like a normal repo to any tool.
+You can switch to full clones if you run tools that don’t behave well with worktrees. For example, when using AI agents with sandboxing.
+
+Config (project `.fleet/config.json` or global `~/.config/fleet/config.json):
+
+```json
+{
+  "backend": "clone"
+}
+```
+
+Or use `--backend clone|worktree` when creating workspaces.
 
 ## Quick start
 

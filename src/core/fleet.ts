@@ -1,12 +1,14 @@
 import chalk from 'chalk';
 import { ensureDir, pathExists } from 'fs-extra';
-import { copyFile, readdir, writeFile } from 'node:fs/promises';
+import { readdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { Backend } from './backends/backend.js';
 import {
   ConfigManager,
   type FleetConfig,
   type FleetConfigInput,
 } from './config.js';
+import { GitRepo } from './git-repo.js';
 import { Workspace } from './workspace.js';
 
 const PROJECT_CONFIG_DEFAULTS: FleetConfigInput = {};
@@ -91,7 +93,7 @@ export class FleetProject {
       : ['/workspaces/', '.workspace', ''];
     await writeFile(
       path.join(fleetDir, '.gitignore'),
-      `${gitignoreLines.join('\n')}`,
+      gitignoreLines.join('\n'),
     );
 
     const config = await ConfigManager.loadConfig(root);
@@ -117,20 +119,26 @@ export class FleetProject {
 
   async createWorkspace(
     name: string,
-    baseBranch?: string,
+    {
+      baseBranch,
+      backend,
+    }: {
+      baseBranch?: string;
+      backend?: FleetConfig['backend'];
+    } = {},
   ): Promise<Workspace> {
     const workspaceDir = this.buildWorkspacePath(name);
     if (await pathExists(workspaceDir)) {
       throw new Error(`Workspace '${name}' already exists`);
     }
 
-    const projectRootWorkspace = new Workspace(this.root);
-    if (await projectRootWorkspace.hasUncommittedChanges()) {
+    const projectRootRepo = new GitRepo(this.root);
+    if (await projectRootRepo.hasUncommittedChanges()) {
       console.warn(
         chalk.yellow('Warning: project root is dirty. Ignoring dirty files.'),
       );
     }
-    const dirtyExtra = await projectRootWorkspace.hasTrackedDirtyExtraFiles(
+    const dirtyExtra = await projectRootRepo.matchDirtyFiles(
       this.config.extraFiles,
     );
     if (dirtyExtra.length > 0) {
@@ -139,26 +147,17 @@ export class FleetProject {
       );
     }
 
-    const workspace = await projectRootWorkspace.clone(
+    const backendImpl = Backend.pick(backend ?? this.config.backend);
+
+    const workspace = new Workspace({
+      projectRootDir: this.root,
       workspaceDir,
-      this.config,
-      baseBranch,
-    );
+      name,
+      backend: backendImpl,
+      config: this.config,
+    });
 
-    await workspace.createBranch(name);
-
-    // create .fleet/.workspace file to mark as workspace
-    await ensureDir(path.join(workspaceDir, '.fleet'));
-    await writeFile(path.join(workspaceDir, '.fleet', '.workspace'), '');
-    const rootGitignore = path.join(this.root, '.fleet', '.gitignore');
-    const workspaceGitignore = path.join(workspaceDir, '.fleet', '.gitignore');
-    if (
-      (await pathExists(rootGitignore)) &&
-      !(await pathExists(workspaceGitignore))
-    ) {
-      // Prevent untracked .fleet/.workspace in the workspace repo.
-      await copyFile(rootGitignore, workspaceGitignore);
-    }
+    await workspace.provision(baseBranch);
 
     return workspace;
   }

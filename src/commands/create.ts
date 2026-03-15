@@ -1,10 +1,12 @@
 import chalk from 'chalk';
+import type { FleetConfig } from '../core/config.js';
 import { FleetProject } from '../core/fleet.js';
 import { ShellIntegration } from '../core/shell-integration.js';
 
 interface CreateOptions {
   base?: string;
   switch?: boolean;
+  backend?: FleetConfig['backend'];
 }
 
 export async function createCommand(
@@ -14,7 +16,10 @@ export async function createCommand(
   try {
     const fleet = await FleetProject.ensureFleetProject();
 
-    await fleet.createWorkspace(workspaceName, options.base);
+    await fleet.createWorkspace(workspaceName, {
+      baseBranch: options.base,
+      backend: options.backend,
+    });
 
     console.log(chalk.green(`Done: workspace "${workspaceName}" created`));
 

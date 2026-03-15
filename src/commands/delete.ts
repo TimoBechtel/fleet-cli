@@ -1,7 +1,9 @@
-import chalk from 'chalk';
-import { pathExists, remove } from 'fs-extra';
 import { confirm } from '@inquirer/prompts';
+import chalk from 'chalk';
+import { pathExists } from 'fs-extra';
+import { Backend } from '../core/backends/backend.js';
 import { FleetProject } from '../core/fleet.js';
+import { GitRepo } from '../core/git-repo.js';
 import { Workspace } from '../core/workspace.js';
 
 export async function deleteCommand(
@@ -31,10 +33,21 @@ export async function deleteCommand(
       process.exit(1);
     }
 
-    if (!options?.force) {
-      const workspace = new Workspace(workspaceDir);
+    const backend = await Backend.detect({
+      projectRootDir: fleet.root,
+      workspaceDir,
+    });
+    const workspace = new Workspace({
+      projectRootDir: fleet.root,
+      workspaceDir,
+      name: resolvedName,
+      backend,
+      config: fleet.config,
+    });
 
-      if (await workspace.hasUncommittedChanges()) {
+    if (!options?.force) {
+      const repo = new GitRepo(workspaceDir);
+      if (await repo.hasUncommittedChanges()) {
         console.error(chalk.red('Error: workspace is not safe to delete'));
         console.error(chalk.red('  Workspace has uncommitted changes'));
         console.error(
@@ -43,7 +56,7 @@ export async function deleteCommand(
         process.exit(1);
       }
 
-      if (await workspace.isDiverged(fleet.root)) {
+      if (await repo.isDiverged(fleet.root)) {
         console.error(chalk.red('Error: workspace is not safe to delete'));
         console.error(
           chalk.red('  Workspace has commits not merged into project root'),
@@ -65,7 +78,7 @@ export async function deleteCommand(
       return;
     }
 
-    await remove(workspaceDir);
+    await workspace.remove({ force: options?.force });
     console.log(chalk.green(`Done: deleted workspace "${resolvedName}"`));
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);

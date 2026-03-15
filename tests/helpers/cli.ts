@@ -22,10 +22,15 @@ const FLEET_ENV: NodeJS.ProcessEnv = {
   GIT_AUTHOR_EMAIL: 'test@example.com',
   GIT_COMMITTER_NAME: 'Fleet Test',
   GIT_COMMITTER_EMAIL: 'test@example.com',
-  GIT_CONFIG_COUNT: '1',
+  GIT_CONFIG_COUNT: '2',
   GIT_CONFIG_KEY_0: 'commit.gpgsign',
   GIT_CONFIG_VALUE_0: 'false',
-  ...(REAL_HOME ? { BUN_INSTALL_CACHE_DIR: `${REAL_HOME}/.bun/install/cache` } : {}),
+  // Disable hooks in tests (husky/lint-staged/global hooks can make tests flaky/slow).
+  GIT_CONFIG_KEY_1: 'core.hooksPath',
+  GIT_CONFIG_VALUE_1: '/dev/null',
+  ...(REAL_HOME
+    ? { BUN_INSTALL_CACHE_DIR: `${REAL_HOME}/.bun/install/cache` }
+    : {}),
 };
 
 function runCommand(

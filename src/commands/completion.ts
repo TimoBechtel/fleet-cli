@@ -1,5 +1,5 @@
-import type { Command } from 'commander';
 import chalk from 'chalk';
+import type { Command, CommandUnknownOpts } from 'commander';
 import { FleetProject } from '../core/fleet.js';
 import { ShellIntegration } from '../core/shell-integration.js';
 
@@ -28,7 +28,7 @@ export function completionCommand(options: { shell?: string } = {}) {
   }
 }
 
-export function createCompleteCommand(program: Command) {
+export function createCompleteCommand(program: CommandUnknownOpts) {
   return async function completeCommand(
     resource?: string,
     target?: string,
@@ -256,7 +256,7 @@ complete -c fleet -f -n '__fleet_needs_workspace' -a '(fleet __complete workspac
 type CompletionLine = { token: string; description?: string };
 
 function getTopLevelCommands(
-  program: Command,
+  program: CommandUnknownOpts,
   includeDescriptions: boolean,
 ): CompletionLine[] {
   const entries: CompletionLine[] = [];
@@ -282,7 +282,7 @@ function getTopLevelCommands(
 }
 
 function getCommandOptions(
-  program: Command,
+  program: CommandUnknownOpts,
   commandName: string,
   includeDescriptions: boolean,
 ): CompletionLine[] {
@@ -297,17 +297,32 @@ function getCommandOptions(
 
     const description = option.description || '';
     if (option.short) {
-      addCompletion(entries, seen, option.short, description, includeDescriptions);
+      addCompletion(
+        entries,
+        seen,
+        option.short,
+        description,
+        includeDescriptions,
+      );
     }
     if (option.long) {
-      addCompletion(entries, seen, option.long, description, includeDescriptions);
+      addCompletion(
+        entries,
+        seen,
+        option.long,
+        description,
+        includeDescriptions,
+      );
     }
   }
 
   return entries;
 }
 
-function findCommand(program: Command, commandName: string): Command | null {
+function findCommand(
+  program: CommandUnknownOpts,
+  commandName: string,
+): CommandUnknownOpts | null {
   for (const command of program.commands) {
     if (command.name() === commandName) return command;
     if (command.aliases().includes(commandName)) return command;
@@ -315,11 +330,10 @@ function findCommand(program: Command, commandName: string): Command | null {
   return null;
 }
 
-function isHiddenCommand(command: Command): boolean {
-  const hiddenFlag =
-    typeof (command as Command & { hidden?: boolean }).isHidden === 'function'
-      ? command.isHidden()
-      : Boolean((command as Command & { hidden?: boolean }).hidden);
+function isHiddenCommand(command: CommandUnknownOpts): boolean {
+  const hiddenFlag = Boolean(
+    (command as Command & { hidden?: boolean }).hidden,
+  );
 
   if (hiddenFlag) return true;
   return !shouldIncludeCommandName(command.name());
@@ -342,7 +356,9 @@ function addCompletion(
     ? sanitizeDescription(description)
     : undefined;
   entries.push(
-    includeDescriptions ? { token, description: sanitizedDescription } : { token },
+    includeDescriptions
+      ? { token, description: sanitizedDescription }
+      : { token },
   );
 }
 
@@ -358,5 +374,5 @@ function printCompletionLines(entries: CompletionLine[]) {
 
 function sanitizeDescription(description: string): string {
   const firstLine = description.split('\n')[0] ?? '';
-  return firstLine.replace(/\t/g, ' ');
+  return firstLine.replaceAll('\t', ' ');
 }
