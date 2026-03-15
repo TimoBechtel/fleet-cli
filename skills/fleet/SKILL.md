@@ -26,6 +26,19 @@ For a specific shell:
 fleet shell-code --shell bash   # or zsh, fish
 ```
 
+Enable shell completions:
+
+```bash
+# bash
+source <(fleet completion --shell bash)
+
+# zsh
+source <(fleet completion --shell zsh)
+
+# fish
+fleet completion --shell fish | source
+```
+
 ## Project setup
 
 Initialize fleet in a git repo:
