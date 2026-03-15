@@ -2,6 +2,7 @@ import chalk from 'chalk';
 import { pathExists } from 'fs-extra';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
+import type { FleetConfig } from '../core/config.js';
 import { FleetProject } from '../core/fleet.js';
 import { resolveWorkspaceDirectory } from '../core/utils.js';
 
@@ -9,7 +10,11 @@ export async function execCommand(
   workspaceOrDirectory: string,
   command: string,
   args?: string[],
-  options: { add?: boolean; base?: string } = {},
+  options: {
+    add?: boolean;
+    base?: string;
+    backend?: FleetConfig['backend'];
+  } = {},
 ) {
   try {
     let targetDir: string | null = null;
@@ -22,7 +27,10 @@ export async function execCommand(
         workspaceOrDirectory !== '.' &&
         workspaceOrDirectory !== '..';
       if (!targetDir && options.add && looksLikeWorkspaceName) {
-        await fleet.createWorkspace(workspaceOrDirectory, options.base);
+        await fleet.addWorkspace(workspaceOrDirectory, {
+          baseBranch: options.base,
+          backend: options.backend,
+        });
         targetDir = fleet.buildWorkspacePath(workspaceOrDirectory);
       }
     }
