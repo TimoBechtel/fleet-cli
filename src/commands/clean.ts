@@ -1,11 +1,8 @@
 import { confirm } from '@inquirer/prompts';
 import chalk from 'chalk';
-import { pathExists } from 'fs-extra';
-import { Backend } from '../core/backends/backend.js';
-import type { FleetConfig } from '../core/config.js';
 import { FleetProject } from '../core/fleet.js';
 import { GitRepo } from '../core/git-repo.js';
-import { Workspace } from '../core/workspace.js';
+import type { Workspace } from '../core/workspace.js';
 
 export async function cleanCommand(options?: { yes?: boolean }) {
   try {
@@ -15,19 +12,23 @@ export async function cleanCommand(options?: { yes?: boolean }) {
     console.log();
 
     const workspaces = await fleet.getWorkspaces();
-    const cleanableWorkspaces: CleanableWorkspace[] = [];
+    const cleanableWorkspaces: {
+      workspace: Workspace;
+      cleanable: CleanableResult;
+    }[] = [];
 
     for (const workspaceName of workspaces) {
-      const workspaceDir = fleet.buildWorkspacePath(workspaceName);
-      const cleanable = await checkDirectoryCleanable({
-        workspaceName,
-        workspaceDir,
-        projectRootDir: fleet.root,
-        config: fleet.config,
+      const workspace = await fleet.getWorkspace(workspaceName);
+      const cleanable = await checkWorkspaceCleanable({
+        workspace,
+        fleet,
       });
 
-      if (cleanable) {
-        cleanableWorkspaces.push(cleanable);
+      if (cleanable.ok) {
+        cleanableWorkspaces.push({
+          workspace,
+          cleanable,
+        });
       }
     }
 
@@ -43,9 +44,9 @@ export async function cleanCommand(options?: { yes?: boolean }) {
     );
     console.log();
 
-    cleanableWorkspaces.forEach((dir) => {
-      console.log(`  - ${chalk.bold(dir.name)}`);
-      dir.reason.forEach((reason) => {
+    cleanableWorkspaces.forEach(({ workspace, cleanable }) => {
+      console.log(`  - ${chalk.bold(workspace.name)}`);
+      cleanable.reason.forEach((reason) => {
         console.log(chalk.dim(`    ${reason}`));
       });
     });
@@ -54,7 +55,7 @@ export async function cleanCommand(options?: { yes?: boolean }) {
 
     if (!options?.yes) {
       const confirmed = await confirm({
-        message: `Remove ${cleanableWorkspaces.length} directories?`,
+        message: `Remove ${cleanableWorkspaces.length} workspaces?`,
         default: false,
       });
 
@@ -65,14 +66,14 @@ export async function cleanCommand(options?: { yes?: boolean }) {
     }
 
     let removedCount = 0;
-    for (const dir of cleanableWorkspaces) {
+    for (const { workspace } of cleanableWorkspaces) {
       try {
-        await dir.workspace.remove();
+        await workspace.remove();
         removedCount++;
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error);
         console.error(
-          chalk.red(`Error: failed to remove ${dir.name}:`),
+          chalk.red(`Error: failed to remove ${workspace.name}:`),
           message,
         );
       }
@@ -87,61 +88,36 @@ export async function cleanCommand(options?: { yes?: boolean }) {
   }
 }
 
-interface CleanableWorkspace {
-  name: string;
-  path: string;
+interface CleanableResult {
+  ok: boolean;
   reason: string[];
-  workspace: Workspace;
 }
 
-async function checkDirectoryCleanable({
-  workspaceName,
-  workspaceDir,
-  projectRootDir,
-  config,
+async function checkWorkspaceCleanable({
+  workspace,
+  fleet,
 }: {
-  workspaceName: string;
-  workspaceDir: string;
-  projectRootDir: string;
-  config: FleetConfig;
-}): Promise<CleanableWorkspace | null> {
-  if (!(await pathExists(workspaceDir))) {
-    return null;
-  }
-
-  const backend = await Backend.detect({
-    projectRootDir,
-    workspaceDir,
-  });
-  const workspace = new Workspace({
-    projectRootDir,
-    workspaceDir,
-    name: workspaceName,
-    backend,
-    config,
-  });
-  const repo = new GitRepo(workspaceDir);
-
-  const cleanable: CleanableWorkspace = {
-    name: workspaceName,
-    path: workspaceDir,
-    reason: [],
-    workspace,
-  };
+  workspace: Workspace;
+  fleet: FleetProject;
+}): Promise<CleanableResult> {
+  const repo = new GitRepo(workspace.directory);
 
   if (await repo.hasUncommittedChanges()) {
-    return null;
+    return {
+      ok: false,
+      reason: ['Workspace has uncommitted changes'],
+    };
   }
 
-  try {
-    if (!(await repo.isDiverged(projectRootDir))) {
-      cleanable.reason.push(`Workspace is merged into project root`);
-    } else {
-      return null;
-    }
-  } catch {
-    return null;
+  if (!(await repo.isDiverged(fleet.root))) {
+    return {
+      ok: true,
+      reason: ['Workspace is merged into project root'],
+    };
+  } else {
+    return {
+      ok: false,
+      reason: ['Workspace is not merged into project root'],
+    };
   }
-
-  return cleanable.reason.length > 0 ? cleanable : null;
 }

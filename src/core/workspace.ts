@@ -23,6 +23,14 @@ export class Workspace {
     },
   ) {}
 
+  get name(): string {
+    return this.ctx.name;
+  }
+
+  get directory(): string {
+    return this.ctx.workspaceDir;
+  }
+
   async provision(baseBranch?: string): Promise<void> {
     await this.ctx.backend.createWorkspace({
       projectRootDir: this.ctx.projectRootDir,

@@ -117,7 +117,7 @@ export class FleetProject {
     return path.join(this.workspacesDir, name);
   }
 
-  async createWorkspace(
+  async addWorkspace(
     name: string,
     {
       baseBranch,
@@ -160,5 +160,24 @@ export class FleetProject {
     await workspace.provision(baseBranch);
 
     return workspace;
+  }
+
+  async getWorkspace(name: string): Promise<Workspace> {
+    const workspaceDir = this.buildWorkspacePath(name);
+    if (!(await pathExists(workspaceDir))) {
+      throw new Error(`Workspace '${name}' does not exist`);
+    }
+
+    const backend = await Backend.detect({
+      projectRootDir: this.root,
+      workspaceDir,
+    });
+    return new Workspace({
+      projectRootDir: this.root,
+      workspaceDir,
+      name,
+      backend,
+      config: this.config,
+    });
   }
 }

@@ -1,10 +1,7 @@
-import chalk from 'chalk';
-import { pathExists } from 'fs-extra';
 import { confirm } from '@inquirer/prompts';
-import { Backend } from '../core/backends/backend.js';
+import chalk from 'chalk';
 import { FleetProject } from '../core/fleet.js';
 import { GitRepo } from '../core/git-repo.js';
-import { Workspace } from '../core/workspace.js';
 
 export async function mergeCommand(
   workspaceName: string,
@@ -13,39 +10,9 @@ export async function mergeCommand(
   try {
     const fleet = await FleetProject.ensureFleetProject();
 
-    // resolve workspace name - could be task id or workspace name
-    const workspaces = await fleet.getWorkspaces();
-    const resolvedName = workspaces.includes(workspaceName)
-      ? workspaceName
-      : null;
+    const workspace = await fleet.getWorkspace(workspaceName);
 
-    if (!resolvedName) {
-      console.error(chalk.red(`Error: workspace "${workspaceName}" not found`));
-      process.exit(1);
-    }
-
-    const workspaceDir = fleet.buildWorkspacePath(resolvedName);
-    if (!(await pathExists(workspaceDir))) {
-      console.error(
-        chalk.red(
-          `Error: workspace directory "${resolvedName}" does not exist`,
-        ),
-      );
-      process.exit(1);
-    }
-
-    const backend = await Backend.detect({
-      projectRootDir: fleet.root,
-      workspaceDir,
-    });
-    const workspace = new Workspace({
-      projectRootDir: fleet.root,
-      workspaceDir,
-      name: resolvedName,
-      backend,
-      config: fleet.config,
-    });
-    const repo = new GitRepo(workspaceDir);
+    const repo = new GitRepo(workspace.directory);
 
     if (await repo.hasUncommittedChanges()) {
       console.error(chalk.red('Error: workspace is not ready to merge'));
@@ -61,7 +28,7 @@ export async function mergeCommand(
 
     if (!options?.yes) {
       const confirmed = await confirm({
-        message: `Merge workspace "${resolvedName}" into the project root ${
+        message: `Merge workspace "${workspace.name}" into the project root ${
           currentBranch ? `(branch: ${currentBranch})` : ''
         }?`,
         default: false,
@@ -78,7 +45,7 @@ export async function mergeCommand(
 
     console.log(
       chalk.green(
-        `Done: merged "${resolvedName}" into project root${
+        `Done: merged "${workspace.name}" into project root${
           currentBranch ? ` (branch: ${currentBranch})` : ''
         }`,
       ),

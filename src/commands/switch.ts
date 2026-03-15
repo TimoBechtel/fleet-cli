@@ -77,7 +77,7 @@ export async function switchCommand(
 
     if (!targetDir) {
       if (options?.add) {
-        await fleet.createWorkspace(workspaceName, {
+        await fleet.addWorkspace(workspaceName, {
           baseBranch: options.base,
           backend: options.backend,
         });

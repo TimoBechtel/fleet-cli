@@ -1,10 +1,7 @@
 import { confirm } from '@inquirer/prompts';
 import chalk from 'chalk';
-import { pathExists } from 'fs-extra';
-import { Backend } from '../core/backends/backend.js';
 import { FleetProject } from '../core/fleet.js';
 import { GitRepo } from '../core/git-repo.js';
-import { Workspace } from '../core/workspace.js';
 
 export async function deleteCommand(
   workspaceName: string,
@@ -13,40 +10,10 @@ export async function deleteCommand(
   try {
     const fleet = await FleetProject.ensureFleetProject();
 
-    const workspaces = await fleet.getWorkspaces();
-    const resolvedName = workspaces.includes(workspaceName)
-      ? workspaceName
-      : null;
-
-    if (!resolvedName) {
-      console.error(chalk.red(`Error: workspace "${workspaceName}" not found`));
-      process.exit(1);
-    }
-
-    const workspaceDir = fleet.buildWorkspacePath(resolvedName);
-    if (!(await pathExists(workspaceDir))) {
-      console.error(
-        chalk.red(
-          `Error: workspace directory "${resolvedName}" does not exist`,
-        ),
-      );
-      process.exit(1);
-    }
-
-    const backend = await Backend.detect({
-      projectRootDir: fleet.root,
-      workspaceDir,
-    });
-    const workspace = new Workspace({
-      projectRootDir: fleet.root,
-      workspaceDir,
-      name: resolvedName,
-      backend,
-      config: fleet.config,
-    });
+    const workspace = await fleet.getWorkspace(workspaceName);
 
     if (!options?.force) {
-      const repo = new GitRepo(workspaceDir);
+      const repo = new GitRepo(workspace.directory);
       if (await repo.hasUncommittedChanges()) {
         console.error(chalk.red('Error: workspace is not safe to delete'));
         console.error(chalk.red('  Workspace has uncommitted changes'));
@@ -69,7 +36,7 @@ export async function deleteCommand(
     }
 
     const confirmed = await confirm({
-      message: `Delete workspace "${resolvedName}"?`,
+      message: `Delete workspace "${workspace.name}"?`,
       default: false,
     });
 
@@ -79,7 +46,7 @@ export async function deleteCommand(
     }
 
     await workspace.remove({ force: options?.force });
-    console.log(chalk.green(`Done: deleted workspace "${resolvedName}"`));
+    console.log(chalk.green(`Done: deleted workspace "${workspace.name}"`));
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
     console.error(chalk.red('Error:'), message);
