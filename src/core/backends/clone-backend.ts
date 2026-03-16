@@ -24,6 +24,10 @@ export class CloneBackend implements Backend {
     const git = simpleGit(projectRootDir);
     const cloneArgs = baseBranch ? ['--branch', baseBranch] : [];
     await git.clone(projectRootDir, workspaceDir, cloneArgs);
+    await this.syncOriginRemote({
+      projectRootDir,
+      workspaceDir,
+    });
 
     const workspaceGit = simpleGit(workspaceDir);
     await workspaceGit.checkoutLocalBranch(name);
@@ -90,5 +94,59 @@ export class CloneBackend implements Backend {
     force?: boolean;
   }): Promise<void> {
     await remove(workspaceDir);
+  }
+
+  // We clone from the project root path, so git sets origin to that local path.
+  // Keep workspace clones pointing at the same origin remote as the project root
+  // so fetch/push behave the way users expect.
+  private async syncOriginRemote({
+    projectRootDir,
+    workspaceDir,
+  }: {
+    projectRootDir: string;
+    workspaceDir: string;
+  }) {
+    const projectGit = simpleGit(projectRootDir);
+
+    let fetchUrl: string | undefined;
+    try {
+      const rawFetchUrl = await projectGit.raw(['remote', 'get-url', 'origin']);
+      fetchUrl = rawFetchUrl.trim() || undefined;
+    } catch {
+      fetchUrl = undefined;
+    }
+
+    let pushUrl: string | undefined;
+    try {
+      const rawPushUrl = await projectGit.raw([
+        'remote',
+        'get-url',
+        '--push',
+        'origin',
+      ]);
+      pushUrl = rawPushUrl.trim() || undefined;
+    } catch {
+      pushUrl = undefined;
+    }
+
+    if (!fetchUrl && !pushUrl) {
+      return;
+    }
+
+    const workspaceGit = simpleGit(workspaceDir);
+
+    if (fetchUrl) {
+      await workspaceGit.raw(['remote', 'set-url', 'origin', fetchUrl]);
+    }
+
+    if (pushUrl && pushUrl !== fetchUrl) {
+      await workspaceGit.raw([
+        'remote',
+        'set-url',
+        '--push',
+        'origin',
+        pushUrl,
+      ]);
+    }
   }
 }
